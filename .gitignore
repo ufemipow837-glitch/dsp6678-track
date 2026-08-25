@@ -1,0 +1,59 @@
+# CCS编译产物
+Debug/
+Release/
+*.o
+*.out
+*.obj
+*.lst
+*.map
+*.mk
+*.d
+*.pp
+*.rl
+*.rlf
+*.sbl
+*.tmp
+*.bak
+*.lib
+
+# CCS IDE文件
+.ccsproject
+.cproject
+.project
+.settings/
+*.launch
+*.log
+targetConfigs/
+
+# Visual Studio / VS Code 缓存
+.vs/
+.vscode/
+*.VC.db
+*.VC.opendb
+*.ipch
+*.vsidx
+*.wsuo
+*.sqlite
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*~
+
+# 备份压缩包
+*.rar
+*.zip
+*.7z
+*.bak
+
+# 图片（可选项，如需保留请注释掉）
+*.png
+*.jpg
+*.jpeg
+*.bmp

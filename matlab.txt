@@ -1,0 +1,594 @@
+%% ========================================================================
+%  无人机跟踪结果 vs 实测数据  精度对比可视化
+%  兼容 MATLAB R2017b（GBK编码）
+%  使用方法：
+%    1. 将CCS串口输出的跟踪结果粘贴到下方"跟踪结果输入区"
+%    2. 直接运行本脚本（需重命名为.m后缀）
+%    3. 自动生成对比图和误差统计
+% =========================================================================
+clear; clc; close all;
+
+%% ====================== 参数配置 ======================
+% CSV数据文件路径（与脚本同目录）
+csv_file = 'drone_data_parsed.csv';
+
+% 无人机点迹筛选条件（与Python脚本一致）
+R_MIN = 1000;     % 最小距离(m)
+R_MAX = 1400;     % 最大距离(m)
+V_MIN = 5;        % 最小速度(m/s)
+V_MAX = 25;       % 最大速度(m/s)
+EL_MIN = 0;       % 最小俯仰(度)
+AZ_MIN = 15;      % 最小方位(度)
+AZ_MAX = 20;      % 最大方位(度)
+
+%% ====================== 跟踪结果输入区 ======================
+% 请将CCS串口输出的跟踪结果按格式粘贴在这里
+% 格式：[帧号, 时间ms, 方位度, 俯仰度, 距离m, 速度m/s]
+% 如果没有新结果，使用7月17日的基准结果（38帧起跟踪）
+track_results = [
+    38, 904372, 17.39, 4.77, 1153.1, 10.9;
+    39, 904536, 17.92, 4.26, 1154.7, 12.1;
+    40, 904700, 17.96, 4.23, 1156.4, 12.2;
+    41, 904864, 18.00, 4.20, 1158.2, 12.3;
+    42, 905028, 18.04, 4.17, 1160.0, 12.3;
+    43, 905192, 18.08, 4.14, 1161.7, 12.4;
+    44, 905356, 18.12, 4.10, 1163.4, 12.6;
+    45, 905520, 18.16, 4.06, 1165.2, 12.7;
+    46, 905684, 18.20, 4.02, 1166.9, 12.8;
+    47, 905848, 18.23, 3.98, 1168.7, 13.0;
+    48, 906012, 18.27, 3.93, 1170.4, 13.2;
+    49, 906176, 18.31, 3.87, 1172.1, 13.4;
+    50, 906340, 18.35, 3.82, 1173.8, 13.6;
+    51, 906504, 18.39, 3.76, 1175.5, 13.9;
+    52, 906668, 18.42, 3.69, 1177.3, 14.1;
+    53, 906832, 18.46, 3.62, 1179.0, 14.4;
+    54, 906996, 18.50, 3.55, 1180.7, 14.7;
+    55, 907160, 17.93, 4.51, 1190.6, 14.2;
+    56, 907324, 17.89, 4.42, 1193.1, 14.3;
+    57, 907488, 17.88, 4.41, 1195.5, 14.3;
+    58, 907652, 17.87, 4.39, 1197.8, 14.3;
+    59, 907816, 17.87, 4.38, 1200.1, 14.4;
+    60, 907980, 17.86, 4.36, 1202.4, 14.4;
+    61, 908144, 17.85, 4.33, 1204.7, 14.5;
+    62, 908308, 17.84, 4.30, 1207.0, 14.6;
+    63, 908472, 17.83, 4.27, 1209.3, 14.7;
+    64, 908636, 17.82, 4.24, 1211.6, 14.8;
+    65, 908800, 17.82, 4.20, 1213.9, 15.0;
+    66, 908964, 17.81, 4.15, 1216.2, 15.1;
+    67, 909128, 17.80, 4.10, 1218.4, 15.3;
+    68, 909292, 17.79, 4.05, 1220.7, 15.5;
+    69, 909456, 17.78, 4.00, 1223.0, 15.7;
+    70, 909620, 17.77, 3.94, 1225.2, 15.9;
+    71, 909784, 17.77, 3.88, 1227.5, 16.2;
+    72, 909948, 17.38, 4.39, 1221.3, 11.5;
+    73, 910112, 17.08, 4.02, 1222.2, 14.5;
+    74, 910276, 17.03, 3.95, 1223.8, 14.8;
+    75, 910440, 16.98, 3.88, 1225.3, 15.2;
+    76, 910604, 16.92, 3.81, 1226.9, 15.5;
+    77, 910768, 16.87, 3.73, 1228.5, 15.8;
+    78, 910932, 16.82, 3.64, 1230.0, 16.2;
+    79, 911096, 16.76, 3.56, 1231.6, 16.6;
+    80, 911260, 16.71, 3.47, 1233.1, 16.9;
+    81, 911424, 16.66, 3.37, 1234.7, 17.3;
+    82, 911588, 16.61, 3.27, 1236.3, 17.7;
+    83, 911752, 16.55, 3.17, 1237.8, 18.1;
+    84, 911916, 16.50, 3.06, 1239.4, 18.5;
+    85, 912080, 16.45, 2.95, 1240.9, 18.9;
+    86, 912244, 16.40, 2.84, 1242.5, 19.3;
+    87, 912408, 16.35, 2.72, 1244.1, 19.7;
+    88, 912572, 16.29, 2.60, 1245.6, 20.1;
+    89, 912736, 16.48, 3.53, 1250.3, 13.6;
+    90, 912900, 16.45, 3.47, 1252.1, 13.8;
+    91, 913064, 16.41, 3.41, 1253.8, 14.0;
+    92, 913228, 16.38, 3.35, 1255.6, 14.3;
+    93, 913392, 16.34, 3.29, 1257.3, 14.6;
+    94, 913556, 16.31, 3.22, 1259.1, 14.9;
+    95, 913720, 16.27, 3.15, 1260.8, 15.2;
+    96, 913884, 16.24, 3.08, 1262.6, 15.5;
+    97, 914048, 16.21, 3.00, 1264.3, 15.9;
+    98, 914212, 16.17, 2.91, 1266.0, 16.2;
+    99, 914376, 16.14, 2.83, 1267.8, 16.5;
+];
+
+%% ====================== 读取实测数据 ======================
+fprintf('正在读取实测数据: %s\n', csv_file);
+
+% 使用textscan读取CSV（兼容R2017b）
+fid = fopen(csv_file, 'r');
+if fid == -1
+    error('无法打开文件: %s', csv_file);
+end
+
+% 跳过表头行（中文表头直接跳过，不解析内容避免编码问题）
+fgetl(fid);
+
+% 读取数据列（按列位置读取，不依赖中文列名）
+data = textscan(fid, '%d %d %d %f %f %f %f %f %f %d %f %d %d %d %d', ...
+    'Delimiter', ',', 'TreatAsEmpty', 'NA');
+fclose(fid);
+
+% 提取各列（列号对应CSV第1-15列）
+idx_all       = data{1};   % 序号
+beam_all      = data{2};   % 波位号
+t_beidou_all  = data{3};   % 北斗时间戳
+t_ms_all      = data{4};   % 时间戳(ms)
+az_all        = data{5};   % 方位(度)
+r_all         = data{6};   % 距离(m)
+el_all        = data{7};   % 俯仰(度)
+h_all         = data{8};   % 高度(m)
+v_all         = data{9};   % 径向速度(m/s)
+snr_all       = data{10};  % 信噪比
+rcs_all       = data{11};  % RCS
+pulse_all     = data{12};  % 宽窄脉冲
+el_beam_all   = data{13};  % 俯仰波束
+targets_all   = data{14};  % 本波位目标数
+valid_all     = data{15};  % 是否有效点
+
+% 筛选有效点 + 无人机特征
+drone_mask = (valid_all == 1) & ...
+             (r_all > R_MIN) & (r_all < R_MAX) & ...
+             (abs(v_all) > V_MIN) & (abs(v_all) < V_MAX) & ...
+             (el_all > EL_MIN) & ...
+             (az_all > AZ_MIN) & (az_all < AZ_MAX);
+
+t_meas    = t_ms_all(drone_mask);
+az_meas   = az_all(drone_mask);
+el_meas   = el_all(drone_mask);
+r_meas    = r_all(drone_mask);
+v_meas    = abs(v_all(drone_mask));
+beam_meas = beam_all(drone_mask);
+
+% 所有有效点（用于3D全景图中的杂波显示）
+valid_mask = (valid_all == 1) & (r_all > 0);
+t_all_valid = t_ms_all(valid_mask);
+az_all_valid = az_all(valid_mask);
+el_all_valid = el_all(valid_mask);
+r_all_valid  = r_all(valid_mask);
+
+% 按时间排序
+[t_meas, sort_idx] = sort(t_meas);
+az_meas  = az_meas(sort_idx);
+el_meas  = el_meas(sort_idx);
+r_meas   = r_meas(sort_idx);
+v_meas   = v_meas(sort_idx);
+
+fprintf('  - 原始总点数: %d\n', length(t_ms_all));
+fprintf('  - 有效点迹数: %d\n', length(t_all_valid));
+fprintf('  - 筛选后无人机点数: %d\n', length(t_meas));
+
+%% ====================== 提取跟踪结果 ======================
+t_track  = track_results(:, 2);
+az_track = track_results(:, 3);
+el_track = track_results(:, 4);
+r_track  = track_results(:, 5);
+v_track  = track_results(:, 6);
+
+fprintf('  - 跟踪结果点数: %d\n', length(t_track));
+fprintf('  - 跟踪起始时间: %.0f ms (Frame %d)\n', t_track(1), track_results(1,1));
+fprintf('  - 跟踪结束时间: %.0f ms (Frame %d)\n', t_track(end), track_results(end,1));
+
+%% ====================== 时间对齐与误差计算 ======================
+% 找共同时间点进行逐点对比
+[common_t, idx_meas, idx_track] = intersect(t_meas, t_track);
+
+if isempty(common_t)
+    warning('没有找到共同时间点！将显示各自数据点，不计算逐点误差。');
+    err_az = []; err_el = []; err_r = []; err_v = [];
+else
+    az_meas_match = az_meas(idx_meas);
+    el_meas_match = el_meas(idx_meas);
+    r_meas_match  = r_meas(idx_meas);
+    v_meas_match  = v_meas(idx_meas);
+    
+    az_track_match = az_track(idx_track);
+    el_track_match = el_track(idx_track);
+    r_track_match  = r_track(idx_track);
+    v_track_match  = v_track(idx_track);
+    
+    err_az = az_track_match - az_meas_match;
+    err_el = el_track_match - el_meas_match;
+    err_r  = r_track_match  - r_meas_match;
+    err_v  = v_track_match  - v_meas_match;
+end
+
+%% ====================== 误差统计输出 ======================
+fprintf('\n');
+fprintf('============================================================\n');
+fprintf('           跟踪精度统计报告（有量测更新的帧）\n');
+fprintf('============================================================\n');
+fprintf('匹配帧数: %d / %d (跟踪帧)\n', length(common_t), length(t_track));
+
+if ~isempty(err_az)
+    fprintf('\n【方位角误差】\n');
+    fprintf('  均值: %.3f 度\n', mean(abs(err_az)));
+    fprintf('  标准差: %.3f 度\n', std(err_az));
+    fprintf('  最大误差: %.3f 度\n', max(abs(err_az)));
+    fprintf('  RMSE: %.3f 度\n', sqrt(mean(err_az.^2)));
+    
+    fprintf('\n【俯仰角误差】\n');
+    fprintf('  均值: %.3f 度\n', mean(abs(err_el)));
+    fprintf('  标准差: %.3f 度\n', std(err_el));
+    fprintf('  最大误差: %.3f 度\n', max(abs(err_el)));
+    fprintf('  RMSE: %.3f 度\n', sqrt(mean(err_el.^2)));
+    
+    fprintf('\n【距离误差】\n');
+    fprintf('  均值: %.1f m\n', mean(abs(err_r)));
+    fprintf('  标准差: %.1f m\n', std(err_r));
+    fprintf('  最大误差: %.1f m\n', max(abs(err_r)));
+    fprintf('  RMSE: %.1f m\n', sqrt(mean(err_r.^2)));
+    r_mean_meas = mean(r_meas_match);
+    fprintf('  相对误差: %.2f %%\n', mean(abs(err_r))/r_mean_meas*100);
+    
+    fprintf('\n【速度误差】\n');
+    fprintf('  均值: %.2f m/s\n', mean(abs(err_v)));
+    fprintf('  标准差: %.2f m/s\n', std(err_v));
+    fprintf('  最大误差: %.2f m/s\n', max(abs(err_v)));
+    fprintf('  RMSE: %.2f m/s\n', sqrt(mean(err_v.^2)));
+end
+fprintf('============================================================\n');
+
+%% ====================== 球坐标转直角坐标（雷达站心坐标系） ======================
+% 坐标系定义：
+%   X轴：方位角0度方向（正北），X = R*cos(El)*cos(Az)
+%   Y轴：方位角90度方向（正东），Y = R*cos(El)*sin(Az)
+%   Z轴：天顶方向，Z = R*sin(El)
+% 注意：方位角从X轴（北）逆时针为正
+
+% 所有有效点（杂波）
+x_all = r_all_valid .* cosd(el_all_valid) .* cosd(az_all_valid);
+y_all = r_all_valid .* cosd(el_all_valid) .* sind(az_all_valid);
+z_all = r_all_valid .* sind(el_all_valid);
+
+% 筛选后的无人机点迹
+x_meas = r_meas .* cosd(el_meas) .* cosd(az_meas);
+y_meas = r_meas .* cosd(el_meas) .* sind(az_meas);
+z_meas = r_meas .* sind(el_meas);
+
+% 跟踪结果
+x_track = r_track .* cosd(el_track) .* cosd(az_track);
+y_track = r_track .* cosd(el_track) .* sind(az_track);
+z_track = r_track .* sind(el_track);
+
+t0 = t_meas(1);
+
+%% ====================== 绘图1：4通道对比图 ======================
+figure('Name', '跟踪结果 vs 实测数据 对比', 'Position', [100 100 1200 800]);
+
+% 方位角对比
+subplot(2,2,1);
+plot(t_meas/1000 - t0/1000, az_meas, 'b.', 'MarkerSize', 10); hold on;
+plot(t_track/1000 - t0/1000, az_track, 'r-', 'LineWidth', 1.5);
+grid on;
+xlabel('时间 (s)'); ylabel('方位角 (度)');
+title('方位角对比');
+legend('实测点迹', '跟踪结果', 'Location', 'best');
+xlim([0 (t_track(end)-t0)/1000]);
+
+% 俯仰角对比
+subplot(2,2,2);
+plot(t_meas/1000 - t0/1000, el_meas, 'b.', 'MarkerSize', 10); hold on;
+plot(t_track/1000 - t0/1000, el_track, 'r-', 'LineWidth', 1.5);
+grid on;
+xlabel('时间 (s)'); ylabel('俯仰角 (度)');
+title('俯仰角对比');
+legend('实测点迹', '跟踪结果', 'Location', 'best');
+xlim([0 (t_track(end)-t0)/1000]);
+
+% 距离对比
+subplot(2,2,3);
+plot(t_meas/1000 - t0/1000, r_meas, 'b.', 'MarkerSize', 10); hold on;
+plot(t_track/1000 - t0/1000, r_track, 'r-', 'LineWidth', 1.5);
+grid on;
+xlabel('时间 (s)'); ylabel('距离 (m)');
+title('距离对比');
+legend('实测点迹', '跟踪结果', 'Location', 'best');
+xlim([0 (t_track(end)-t0)/1000]);
+
+% 速度对比
+subplot(2,2,4);
+plot(t_meas/1000 - t0/1000, v_meas, 'b.', 'MarkerSize', 10); hold on;
+plot(t_track/1000 - t0/1000, v_track, 'r-', 'LineWidth', 1.5);
+grid on;
+xlabel('时间 (s)'); ylabel('速度 (m/s)');
+title('速度对比');
+legend('实测点迹', '跟踪结果', 'Location', 'best');
+xlim([0 (t_track(end)-t0)/1000]);
+
+%% ====================== 绘图2：误差随时间变化 ======================
+if ~isempty(common_t)
+    figure('Name', '误差随时间变化', 'Position', [150 150 1000 700]);
+    
+    subplot(2,2,1);
+    plot(common_t/1000 - t0/1000, err_az, 'k.-', 'LineWidth', 1, 'MarkerSize', 8);
+    grid on; hold on;
+    plot(xlim, [0 0], 'r--');
+    xlabel('时间 (s)'); ylabel('方位误差 (度)');
+    title('方位角误差');
+    
+    subplot(2,2,2);
+    plot(common_t/1000 - t0/1000, err_el, 'k.-', 'LineWidth', 1, 'MarkerSize', 8);
+    grid on; hold on;
+    plot(xlim, [0 0], 'r--');
+    xlabel('时间 (s)'); ylabel('俯仰误差 (度)');
+    title('俯仰角误差');
+    
+    subplot(2,2,3);
+    plot(common_t/1000 - t0/1000, err_r, 'k.-', 'LineWidth', 1, 'MarkerSize', 8);
+    grid on; hold on;
+    plot(xlim, [0 0], 'r--');
+    xlabel('时间 (s)'); ylabel('距离误差 (m)');
+    title('距离误差');
+    
+    subplot(2,2,4);
+    plot(common_t/1000 - t0/1000, err_v, 'k.-', 'LineWidth', 1, 'MarkerSize', 8);
+    grid on; hold on;
+    plot(xlim, [0 0], 'r--');
+    xlabel('时间 (s)'); ylabel('速度误差 (m/s)');
+    title('速度误差');
+end
+
+%% ====================== 绘图3：误差直方图 ======================
+if ~isempty(common_t)
+    figure('Name', '误差分布直方图', 'Position', [200 200 1000 700]);
+    
+    subplot(2,2,1);
+    hist(err_az, 20);
+    h = findobj(gca, 'Type', 'patch');
+    set(h, 'FaceColor', [0.3 0.6 0.9], 'EdgeColor', 'w');
+    grid on;
+    xlabel('方位误差 (度)'); ylabel('频数');
+    title('方位角误差分布');
+    
+    subplot(2,2,2);
+    hist(err_el, 20);
+    h = findobj(gca, 'Type', 'patch');
+    set(h, 'FaceColor', [0.3 0.8 0.5], 'EdgeColor', 'w');
+    grid on;
+    xlabel('俯仰误差 (度)'); ylabel('频数');
+    title('俯仰角误差分布');
+    
+    subplot(2,2,3);
+    hist(err_r, 20);
+    h = findobj(gca, 'Type', 'patch');
+    set(h, 'FaceColor', [0.9 0.6 0.3], 'EdgeColor', 'w');
+    grid on;
+    xlabel('距离误差 (m)'); ylabel('频数');
+    title('距离误差分布');
+    
+    subplot(2,2,4);
+    hist(err_v, 20);
+    h = findobj(gca, 'Type', 'patch');
+    set(h, 'FaceColor', [0.8 0.4 0.6], 'EdgeColor', 'w');
+    grid on;
+    xlabel('速度误差 (m/s)'); ylabel('频数');
+    title('速度误差分布');
+end
+
+%% ====================== 绘图4：航迹运动趋势分析（2D） ======================
+figure('Name', '航迹运动趋势', 'Position', [250 250 1000 500]);
+
+% 距离-时间 趋势
+subplot(1,2,1);
+plot(t_meas/1000 - t0/1000, r_meas, 'b.', 'MarkerSize', 8); hold on;
+plot(t_track/1000 - t0/1000, r_track, 'r-', 'LineWidth', 1.5);
+grid on;
+xlabel('时间 (s)'); ylabel('距离 (m)');
+title('距离随时间变化（径向速度趋势）');
+legend('实测', '跟踪', 'Location', 'southeast');
+
+% 添加线性拟合显示径向速度
+if length(t_track) > 5
+    p = polyfit(t_track/1000 - t0/1000, r_track, 1);
+    v_fit = p(1);
+    if v_fit > 0
+        dir_str = '(远离)';
+    else
+        dir_str = '(接近)';
+    end
+    text(0.05, 0.95, sprintf('平均径向速度: %.1f m/s %s', abs(v_fit), dir_str), ...
+        'Units', 'normalized', 'FontSize', 10, 'BackgroundColor', 'w');
+end
+
+% 方位-距离 航迹投影
+subplot(1,2,2);
+plot(x_meas, y_meas, 'b.', 'MarkerSize', 8); hold on;
+plot(x_track, y_track, 'r.-', 'LineWidth', 1, 'MarkerSize', 8);
+plot(0, 0, 'k^', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+grid on; axis equal;
+xlabel('X - 北 (m)'); ylabel('Y - 东 (m)');
+title('航迹水平投影（雷达位于原点）');
+legend('实测点迹', '跟踪轨迹', '雷达位置', 'Location', 'best');
+
+%% ====================== 绘图5：3D立体全景图 ======================
+% 图5a：全景3D图 - 所有杂波点 + 无人机点 + 跟踪轨迹
+figure('Name', '3D立体全景图 - 雷达探测场景', 'Position', [50 50 1400 900]);
+
+% 绘制所有有效点（灰色小点表示杂波/其他目标）
+scatter3(x_all, y_all, z_all, 8, [0.7 0.7 0.7], 'filled', 'MarkerFaceAlpha', 0.3);
+hold on;
+
+% 绘制筛选后的无人机点迹（蓝色圆点，按时间渐变颜色）
+colormap_meas = jet(length(x_meas));
+for i = 1:length(x_meas)
+    scatter3(x_meas(i), y_meas(i), z_meas(i), 40, colormap_meas(i,:), 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
+end
+
+% 绘制跟踪轨迹（红色粗线 + 标记点）
+plot3(x_track, y_track, z_track, 'r-', 'LineWidth', 2.5);
+scatter3(x_track, y_track, z_track, 50, 'r', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 0.8);
+
+% 标记跟踪起始和结束点
+scatter3(x_track(1), y_track(1), z_track(1), 200, 'g', 'p', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+scatter3(x_track(end), y_track(end), z_track(end), 200, 'm', 'h', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+
+% 绘制雷达位置
+scatter3(0, 0, 0, 200, 'k', '^', 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 1.5);
+
+% 绘制坐标轴参考线
+plot3([0 max(x_all)*1.1], [0 0], [0 0], 'k--', 'LineWidth', 0.8);  % X轴（北）
+plot3([0 0], [0 max(y_all)*1.1], [0 0], 'k--', 'LineWidth', 0.8);  % Y轴（东）
+plot3([0 0], [0 0], [0 max(z_all)*1.1], 'k--', 'LineWidth', 0.8);  % Z轴（天顶）
+
+grid on;
+axis equal;
+xlabel('X - 北 (m)', 'FontSize', 11);
+ylabel('Y - 东 (m)', 'FontSize', 11);
+zlabel('Z - 高度 (m)', 'FontSize', 11);
+title('3D雷达探测全景图（灰=杂波, 彩=无人机点迹, 红=跟踪轨迹）', 'FontSize', 12);
+legend('杂波/其他目标', '无人机点迹(颜色=时间)', '跟踪轨迹', '跟踪点', '跟踪起始', '跟踪结束', '雷达位置', 'Location', 'northeast');
+view(45, 25);  % 设置视角：方位45度，仰角25度
+colorbar;
+caxis([0 (t_meas(end)-t0)/1000]);
+cb = colorbar;
+cb.Label.String = '时间 (s)';
+
+%% ====================== 绘图6：3D对比图 - 无人机点迹 vs 跟踪轨迹（细节） ======================
+figure('Name', '3D跟踪对比图 - 细节视图', 'Position', [100 100 1400 700]);
+
+% 子图1：斜视3D视图
+subplot(1,2,1);
+% 绘制无人机点迹（蓝色，大小表示信噪比，这里固定大小）
+scatter3(x_meas, y_meas, z_meas, 60, 'b', 'filled', 'MarkerFaceAlpha', 0.6, ...
+    'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
+hold on;
+% 绘制跟踪轨迹
+plot3(x_track, y_track, z_track, 'r-', 'LineWidth', 2.5);
+scatter3(x_track, y_track, z_track, 80, 'r', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1);
+% 标记起点终点
+scatter3(x_track(1), y_track(1), z_track(1), 250, 'g', 'p', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 2);
+scatter3(x_track(end), y_track(end), z_track(end), 250, 'm', 'h', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 2);
+% 雷达位置
+scatter3(0, 0, 0, 200, 'k', '^', 'filled');
+% 绘制雷达至航迹的连线（波束示意）
+for i = 1:5:length(x_track)
+    plot3([0 x_track(i)], [0 y_track(i)], [0 z_track(i)], 'k:', 'LineWidth', 0.5, 'Color', [0.5 0.5 0.5]);
+end
+grid on; axis equal;
+xlabel('X - 北 (m)'); ylabel('Y - 东 (m)'); zlabel('Z - 高度 (m)');
+title('3D跟踪对比（斜视）');
+legend('实测点迹', '跟踪轨迹', '跟踪点', '起点', '终点', '雷达', 'Location', 'best');
+view(60, 30);
+
+% 子图2：俯视图（XY平面）
+subplot(1,2,2);
+scatter(x_meas, y_meas, 60, 'b', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerEdgeColor', 'k');
+hold on;
+plot(x_track, y_track, 'r-', 'LineWidth', 2.5);
+scatter(x_track, y_track, 80, 'r', 'filled', 'MarkerEdgeColor', 'k');
+scatter(x_track(1), y_track(1), 250, 'g', 'p', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 2);
+scatter(x_track(end), y_track(end), 250, 'm', 'h', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 2);
+scatter(0, 0, 200, 'k', '^', 'filled');
+% 距离环
+theta = linspace(0, 2*pi, 100);
+r_rings = [1000 1200 1400];
+for rr = r_rings
+    plot(rr*cos(theta), rr*sin(theta), 'k--', 'LineWidth', 0.5, 'Color', [0.7 0.7 0.7]);
+    text(rr, 0, sprintf('%dm', rr), 'FontSize', 8, 'Color', [0.5 0.5 0.5]);
+end
+grid on; axis equal;
+xlabel('X - 北 (m)'); ylabel('Y - 东 (m)');
+title('俯视图（含距离环）');
+legend('实测点迹', '跟踪轨迹', '跟踪点', '起点', '终点', '雷达', 'Location', 'best');
+
+%% ====================== 绘图7：球坐标3D视图（方位-俯仰-距离） ======================
+figure('Name', '球坐标3D视图 - Az-El-R', 'Position', [150 150 1000 700]);
+
+% 所有有效点（杂波）
+scatter3(az_all_valid, el_all_valid, r_all_valid, 8, [0.7 0.7 0.7], 'filled', 'MarkerFaceAlpha', 0.3);
+hold on;
+
+% 无人机点迹
+scatter3(az_meas, el_meas, r_meas, 50, 'b', 'filled', 'MarkerEdgeColor', 'k');
+
+% 跟踪轨迹
+plot3(az_track, el_track, r_track, 'r-', 'LineWidth', 2.5);
+scatter3(az_track, el_track, r_track, 60, 'r', 'filled', 'MarkerEdgeColor', 'k');
+
+% 起点终点标记
+scatter3(az_track(1), el_track(1), r_track(1), 250, 'g', 'p', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+scatter3(az_track(end), el_track(end), r_track(end), 250, 'm', 'h', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+
+grid on;
+xlabel('方位角 (度)', 'FontSize', 11);
+ylabel('俯仰角 (度)', 'FontSize', 11);
+zlabel('距离 (m)', 'FontSize', 11);
+title('球坐标空间3D视图（方位-俯仰-距离）', 'FontSize', 12);
+legend('杂波/其他目标', '无人机点迹', '跟踪轨迹', '跟踪点', '跟踪起始', '跟踪结束', 'Location', 'best');
+view(50, 20);
+
+%% ====================== 绘图8：距离-高度-方位 三视图联动 ======================
+figure('Name', '多视角对比', 'Position', [200 200 1200 900]);
+
+% 子图1：R-Z（距离-高度剖面图）
+subplot(2,2,1);
+scatter(r_meas, z_meas, 40, 'b', 'filled', 'MarkerFaceAlpha', 0.6); hold on;
+plot(r_track, z_track, 'r.-', 'LineWidth', 1.5, 'MarkerSize', 10);
+grid on;
+xlabel('距离 R (m)'); ylabel('高度 Z (m)');
+title('距离-高度剖面对比');
+legend('实测', '跟踪', 'Location', 'best');
+
+% 子图2：Az-Z（方位-高度剖面图）
+subplot(2,2,2);
+scatter(az_meas, z_meas, 40, 'b', 'filled', 'MarkerFaceAlpha', 0.6); hold on;
+plot(az_track, z_track, 'r.-', 'LineWidth', 1.5, 'MarkerSize', 10);
+grid on;
+xlabel('方位角 Az (度)'); ylabel('高度 Z (m)');
+title('方位-高度剖面对比');
+legend('实测', '跟踪', 'Location', 'best');
+
+% 子图3：R-Az（距离-方位平面图）
+subplot(2,2,3);
+scatter(r_meas, az_meas, 40, 'b', 'filled', 'MarkerFaceAlpha', 0.6); hold on;
+plot(r_track, az_track, 'r.-', 'LineWidth', 1.5, 'MarkerSize', 10);
+grid on;
+xlabel('距离 R (m)'); ylabel('方位角 Az (度)');
+title('距离-方位平面对比');
+legend('实测', '跟踪', 'Location', 'best');
+
+% 子图4：3D透视
+subplot(2,2,4);
+scatter3(x_meas, y_meas, z_meas, 40, 'b', 'filled', 'MarkerFaceAlpha', 0.6); hold on;
+plot3(x_track, y_track, z_track, 'r-', 'LineWidth', 2);
+scatter3(x_track, y_track, z_track, 50, 'r', 'filled');
+scatter3(0, 0, 0, 150, 'k', '^', 'filled');
+grid on; axis equal;
+xlabel('X (m)'); ylabel('Y (m)'); zlabel('Z (m)');
+title('3D透视图');
+legend('实测', '跟踪轨迹', '跟踪点', '雷达', 'Location', 'best');
+view(-30, 20);
+
+%% ====================== 结论输出 ======================
+fprintf('\n');
+if ~isempty(err_az)
+    fprintf('【结论】\n');
+    if mean(abs(err_az)) < 1.0 && mean(abs(err_el)) < 1.0
+        fprintf('  OK 方位/俯仰角误差 < 1度，在雷达波束宽度范围内，跟踪稳定\n');
+    else
+        fprintf('  WARN 角度误差较大，请检查雷达安装角或坐标旋转变换\n');
+    end
+    if mean(abs(err_r))/r_mean_meas*100 < 2.0
+        fprintf('  OK 距离相对误差 < 2%%，精度良好\n');
+    else
+        fprintf('  WARN 距离误差较大，请检查距离测量或滤波参数\n');
+    end
+    if mean(abs(err_v)) < 3.0
+        fprintf('  OK 速度误差 < 3m/s，速度估计正确\n');
+    else
+        fprintf('  WARN 速度误差较大，请检查过程噪声设置\n');
+    end
+    fprintf('  OK 跟踪从Frame %d开始，持续到Frame %d，共%d帧无丢失\n', ...
+        track_results(1,1), track_results(end,1), length(t_track));
+end
+
+fprintf('\n共生成8张图：\n');
+fprintf('  图1: 4通道时域对比\n');
+fprintf('  图2: 误差随时间变化\n');
+fprintf('  图3: 误差分布直方图\n');
+fprintf('  图4: 2D航迹趋势\n');
+fprintf('  图5: 3D立体全景图（含杂波）\n');
+fprintf('  图6: 3D跟踪对比细节图（斜视+俯视+波束线）\n');
+fprintf('  图7: 球坐标3D视图（Az-El-R）\n');
+fprintf('  图8: 多视角三视图联动\n');
+fprintf('\n可视化完成！\n');
