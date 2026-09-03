@@ -388,6 +388,7 @@ struct  target_track
 {
 	long frameSn;
 	uint32_t tgtnum;         	//目标号
+	uint32_t beamNo;            	//波束号
     uint32_t  Year;
 	uint32_t  Month;
 	uint32_t  Day;
@@ -411,6 +412,7 @@ struct  target_track
 struct temp_track
 {
 	uint32_t tgtnum;         	//目标号
+	uint32_t beamNo;            	//波束号
 	uint32_t  Year;
 	uint32_t  Month;
 	uint32_t  Day;
@@ -446,6 +448,7 @@ typedef struct reliable
 
     IMM_STATE imm;
 
+    uint32_t init_beamNo;        //初始化波束号
     int 	predict_flag;	//连续外推次数
     int		track_update_flag;		//1表示已经过滤波测量更新
     int     num_P;//航迹批号，-1表示消亡

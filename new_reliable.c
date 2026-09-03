@@ -15,7 +15,7 @@ extern struct debugger_track track_debugger;
 
 #define MIN_POINTS_FOR_RELIABLE 3
 #define CONFIDENCE_THRESHOLD 0.9f
-#define MAX_RELIABLE_TRACKS 1
+#define MAX_RELIABLE_TRACKS 5
 
 static float calculate_confidence_for_track(struct temp_track *track0, struct temp_track *track1, struct temp_track *track2) {
     float T1, T2;
@@ -105,6 +105,55 @@ void new_reliable(struct reliable (*reliable_track),
             }
 
             if(count >= MIN_POINTS_FOR_RELIABLE){
+                /* ===== DRONE HARD CONSTRAINTS (Layer C) =====
+                   Cross-beam/clutter 3-point rejection:
+                   1. R spread between any 2 of 3 pts <= 800m
+                   2. Speed ratio of 2 seg >= 0.3
+                   3. Neither seg speed > track_debugger.Vmax (30) */
+                {
+                    float x0,x1,x2,y0,y1,y2,z0,z1,z2;
+                    float r0,r1,r2,dr;
+                    float v1x,v1y,v1z,v2x,v2y,v2z,v1n,v2n,minv,maxv;
+                    float T1s,T2s;
+                    float raw_spd;
+                    x0=track_asso_data[i*3+0].X[0]; y0=track_asso_data[i*3+0].X[2]; z0=track_asso_data[i*3+0].X[4];
+                    x1=track_asso_data[i*3+1].X[0]; y1=track_asso_data[i*3+1].X[2]; z1=track_asso_data[i*3+1].X[4];
+                    x2=track_asso_data[i*3+2].X[0]; y2=track_asso_data[i*3+2].X[2]; z2=track_asso_data[i*3+2].X[4];
+                    /* 1. R spread check */
+                    r0=sqrtf(x0*x0+y0*y0+z0*z0);
+                    r1=sqrtf(x1*x1+y1*y1+z1*z1);
+                    r2=sqrtf(x2*x2+y2*y2+z2*z2);
+                    dr=fabsf(r0-r1);
+                    if(fabsf(r1-r2)>dr) dr=fabsf(r1-r2);
+                    if(fabsf(r0-r2)>dr) dr=fabsf(r0-r2);
+                    if(dr > 800.0f) continue;
+                    /* 2. Speed checks (ALWAYS RUN regardless of T and v1n/v2n) */
+                    T1s=(track_asso_data[i*3+1].mSecond-track_asso_data[i*3+0].mSecond)/1000.0f;
+                    T2s=(track_asso_data[i*3+2].mSecond-track_asso_data[i*3+1].mSecond)/1000.0f;
+                    v1n = 0.0f; v2n = 0.0f;
+                    if(T1s>0.001f){
+                        v1x=(x1-x0)/T1s; v1y=(y1-y0)/T1s; v1z=(z1-z0)/T1s;
+                        v1n=sqrtf(v1x*v1x+v1y*v1y+v1z*v1z);
+                        if(v1n > track_debugger.Vmax) continue;
+                    }
+                    if(T2s>0.001f){
+                        v2x=(x2-x1)/T2s; v2y=(y2-y1)/T2s; v2z=(z2-z1)/T2s;
+                        v2n=sqrtf(v2x*v2x+v2y*v2y+v2z*v2z);
+                        if(v2n > track_debugger.Vmax) continue;
+                    }
+                    /* Speed ratio check only when both speeds are meaningful */
+                    if(v1n>5.0f && v2n>5.0f){
+                        minv=(v1n<v2n)?v1n:v2n;
+                        maxv=(v1n>v2n)?v1n:v2n;
+                        if(minv/maxv<0.3f) continue;
+                    }
+                    /* 3. Also check velocity already stored in track_asso_data (cross-beam may have corrupted it) */
+                    raw_spd = sqrtf(track_asso_data[i*3+2].X[1]*track_asso_data[i*3+2].X[1]
+                                  + track_asso_data[i*3+2].X[3]*track_asso_data[i*3+2].X[3]
+                                  + track_asso_data[i*3+2].X[5]*track_asso_data[i*3+2].X[5]);
+                    if(raw_spd > track_debugger.Vmax) continue;
+                }
+                /* ===== END HARD CONSTRAINTS ===== */
                 confidence = calculate_confidence_for_track(
                     &track_asso_data[i*3+0],
                     &track_asso_data[i*3+1],
@@ -138,12 +187,25 @@ void new_reliable(struct reliable (*reliable_track),
             vy = track_asso_data[best_idx*3+2].X[3];
             vz = track_asso_data[best_idx*3+2].X[5];
             spd = sqrtf(vx*vx + vy*vy + vz*vz);
-            init_hint = 0;
-            if(spd > 200.0f) init_hint = 1;
-            else if(spd < 60.0f) init_hint = 2;
+
+            {
+                float ix = track_asso_data[best_idx*3+2].X[0];
+                float iy = track_asso_data[best_idx*3+2].X[2];
+                float iz = track_asso_data[best_idx*3+2].X[4];
+                float init_R = sqrtf(ix*ix + iy*iy + iz*iz);
+
+                init_hint = 0;
+                if(spd > 200.0f && init_R > 2500.0f)
+                    init_hint = 1;
+                else if(spd < 60.0f)
+                    init_hint = 2;
+                if(init_R < 2500.0f)
+                    init_hint = 2;
+            }
             imm_init(&reliable_track[idx].imm, track_asso_data[best_idx*3+2].X,
                      (const float (*)[6])track_asso_data[best_idx*3+2].P, init_hint);
 
+            reliable_track[idx].init_beamNo = track_asso_data[best_idx*3+2].beamNo;
             reliable_track[idx].Year      = track_asso_data[best_idx*3+2].Year;
             reliable_track[idx].Month     = track_asso_data[best_idx*3+2].Month;
             reliable_track[idx].Day       = track_asso_data[best_idx*3+2].Day;

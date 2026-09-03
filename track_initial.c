@@ -153,6 +153,7 @@ static void get_track_asso1(struct target_track *target_data_ptr,
         memcpy(track_asso_data[(*track_asso_num-1)*3+1].P, P0, sizeof(P0));
     
         track_asso_data[(*track_asso_num-1)*3+1].tgtnum    = target_data_ptr->tgtnum;
+        track_asso_data[(*track_asso_num-1)*3+1].beamNo    = target_data_ptr->beamNo;
         track_asso_data[(*track_asso_num-1)*3+1].Year     = target_data_ptr->Year;
         track_asso_data[(*track_asso_num-1)*3+1].Month    = target_data_ptr->Month;
         track_asso_data[(*track_asso_num-1)*3+1].Day      = target_data_ptr->Day;
@@ -186,6 +187,7 @@ static void get_track_asso2(struct target_track *target_data_ptr,
         memcpy(track_asso_data[(*track_asso_num-1)*3+2].P, P0, sizeof(P0));
     
         track_asso_data[(*track_asso_num-1)*3+2].tgtnum    = target_data_ptr->tgtnum;
+        track_asso_data[(*track_asso_num-1)*3+2].beamNo    = target_data_ptr->beamNo;
         track_asso_data[(*track_asso_num-1)*3+2].Year     = target_data_ptr->Year;
         track_asso_data[(*track_asso_num-1)*3+2].Month    = target_data_ptr->Month;
         track_asso_data[(*track_asso_num-1)*3+2].Day      = target_data_ptr->Day;
@@ -222,6 +224,7 @@ static void get_track_begin(struct target_track *current_dot,
         memcpy(track_asso_data[idx*3+0].P, zeros, sizeof(zeros));
 
         track_asso_data[idx*3+0].tgtnum    = current_dot->tgtnum;
+        track_asso_data[idx*3+0].beamNo    = current_dot->beamNo;
         track_asso_data[idx*3+0].Year      = current_dot->Year;
         track_asso_data[idx*3+0].Month     = current_dot->Month;
         track_asso_data[idx*3+0].Day       = current_dot->Day;

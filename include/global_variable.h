@@ -1,7 +1,7 @@
 /*
  * global_variable.h
  *
- *  Created on: 2023年12月21日
+ *  Created on: 2023�12�21�
  *      Author: 22431
  */
 
@@ -19,8 +19,8 @@
 #define e2 0.006694
 
 #define START_THOLD 3
-// 注意：TRACK_ASSO_TH 已移至 matrix.h/c 中作为 float 变量定义，不要重复宏定义
-// 注意：num_temp, num_reliable, cpi_num, g 已在 matrix.h 中定义，不要重复定义
+// 注意：TRACK_ASSO_TH 已移� matrix.h/c �作为 float 变量定义，不要重复宏定义
+// 注意：num_temp, num_reliable, cpi_num, g 已在 matrix.h �定义，不要重复定�
 
 extern float X_text[6];
 extern float P_text[6][6];
@@ -36,8 +36,8 @@ extern float lag_time;
 
 extern float d;
 extern float alpha1;
-extern int asso_info1[100];
-extern int asso_info2[100];
+extern int asso_info1[500];
+extern int asso_info2[500];
 extern int info_count1;
 extern int info_count2;
 
@@ -149,8 +149,8 @@ extern float IPI[6][6];
 //extern float n04;
 
 /* ========================================================================
- * 核心航迹/点迹池全局变量（定义在 global_variable.c）
- * 外部只需包含此头文件即可使用，无需再重复定义
+ * 核心��/点迹池全�变量（定义在 global_variable.c�
+ * 外部��包含此头文件即可使用，无�再重复定�
  * ======================================================================== */
 extern struct reliable reliable_track[];
 extern struct TARGETPIONT_1 target_data[];

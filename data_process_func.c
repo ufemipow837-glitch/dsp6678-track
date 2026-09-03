@@ -158,10 +158,10 @@ static void ApplyDefaultParam(void)
     track_debugger.wx          = 0.0f;
     track_debugger.wy          = 0.0f;
     track_debugger.wz          = 0.0f;
-    track_debugger.Vmin        = 5.0f;
-    track_debugger.Vmax        = 1500.0f;
+    track_debugger.Vmin        = 5.0f;  // 无人机下限;
+    track_debugger.Vmax = 20.0f; // 无人机硬约束: 30 m/s max;
     track_debugger.time_down   = 0.0f;
-    track_debugger.time_up     = 4500.0f;
+    track_debugger.time_up     = 8000.0f;
     track_debugger.azi_down    = -60.0f * PI / 180.0f;
     track_debugger.azi_up      =  60.0f * PI / 180.0f;
     track_debugger.ele_down    = -5.0f * PI / 180.0f;
@@ -169,7 +169,7 @@ static void ApplyDefaultParam(void)
     track_debugger.range_down  = 100.0f;
     track_debugger.range_up    = 50000.0f;
     track_debugger.angle_hang  = 0.0f;
-    TRACK_ASSO_TH = 15.0f;
+    TRACK_ASSO_TH = 50.0f;  // 放宽马氏距离门限适应跨波束跳变
     radar.initAz = 0.0f;
     radar.initEL = 0.0f;
     radar.initRo = 0.0f;

@@ -21,7 +21,7 @@
 #define TAS_SWITCH_THRESHOLD 6
 #define MAX_PREDICT_WITHOUT_UPDATE 5
 #define TAS_CONFIDENCE_THRESHOLD 0.85f
-#define MAX_SIMULTANEOUS_TRACKS 1
+#define MAX_SIMULTANEOUS_TRACKS 5
 
 typedef enum {
     TRACK_STATE_SEARCHING = 0,
@@ -272,6 +272,7 @@ void track(
 		for(i = 0; i < cpi_num; i++){
 			dot_data[k][i].Use_Flag_1 = 0;
 		}
+		dot_data[k][0].beamNo	= TARGETPIONT_track->beamNo;
 		dot_data[k][0].frameSn	= TARGETPIONT_track->frameSn;
 		dot_data[k][0].Year		= TARGETPIONT_track->Year;
 		dot_data[k][0].Month	= TARGETPIONT_track->Month;
@@ -303,6 +304,7 @@ void track(
 			dot_data[k][i].velocity = TARGETPIONT_track->velocity[i];
 			dot_data[k][i].Use_Flag_1 = 1;
 			dot_data[k][i].tgtnum	= TARGETPIONT_track->tgtnum;
+			dot_data[k][i].beamNo	= TARGETPIONT_track->beamNo;
 			dot_data[k][i].frameSn	= TARGETPIONT_track->frameSn;
 			dot_data[k][i].Year		= TARGETPIONT_track->Year;
 			dot_data[k][i].Month	= TARGETPIONT_track->Month;
@@ -474,7 +476,20 @@ void track(
 				track_renew[j].range = sqrtf(reliable_track[j].X1[0] * reliable_track[j].X1[0] + reliable_track[j].X1[2] * reliable_track[j].X1[2] + reliable_track[j].X1[4] * reliable_track[j].X1[4]);
 				track_renew[j].azi = (3.14159265f/2.0f - atan2f(X_temp2[1][0],X_temp2[0][0])) * 180.0f/3.14159265f;
 				track_renew[j].ele = atan2f(X_temp2[2][0] , sqrtf(X_temp2[0][0] * X_temp2[0][0] + X_temp2[1][0] * X_temp2[1][0])) * 180.0f/3.14159265f;
-				track_renew[j].Vel = sqrtf(reliable_track[j].X1[1] * reliable_track[j].X1[1] + reliable_track[j].X1[3] * reliable_track[j].X1[3] + reliable_track[j].X1[5] * reliable_track[j].X1[5]);
+				{
+				/* Vr = radial velocity WITH SIGN
+				   drone AWAY    -> Vr negative (matches Vr=-11.7 m/s convention)
+				   drone APPROACH -> Vr positive
+				   Vr = -(vx*x + vy*y + vz*z) / R */
+				float ix2 = reliable_track[j].X1[0];
+				float iy2 = reliable_track[j].X1[2];
+				float iz2 = reliable_track[j].X1[4];
+				float iR2 = sqrtf(ix2*ix2 + iy2*iy2 + iz2*iz2);
+				float ivx2 = reliable_track[j].X1[1];
+				float ivy2 = reliable_track[j].X1[3];
+				float ivz2 = reliable_track[j].X1[5];
+				track_renew[j].Vel = -(ivx2*ix2 + ivy2*iy2 + ivz2*iz2) / (iR2 + 1e-6f);
+			}
 				
 				track_renew[j].num_P = reliable_track[j].num_P;
 				track_renew[j].num = (*reliable_track_num);

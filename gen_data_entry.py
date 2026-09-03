@@ -1,144 +1,257 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""Generate data_entry.c from measured radar data (UTF-8)
+Produces N_FRAMES frames split into sub-functions.
+ALL output is ASCII-safe for C6000 compiler.
 """
-将无人机实测数据转换为data_entry.c格式
-选取前N帧(默认100帧)生成C测试数据
-"""
-import csv, os, math
-from collections import defaultdict
+import re, math, os, sys
 
-PLOT_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_data_parsed.csv')
-CPI_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_data_cpi.csv')
-OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data_entry.c')
+BASE = r'd:\DSP\6678\track\track_1'
+INPUT = os.path.join(BASE, '无人机实测数据.txt')
+OUTPUT = os.path.join(BASE, 'data_entry.c')
+N_FRAMES = 1300
+FRAMES_PER_FUNC = 50
 
-NUM_FRAMES = 100  # target_data数组大小为100
+# Correct Unicode for Chinese field names (from actual file bytes)
+CN_ts  = '\u65f6\u95f4\u6233'   # 时间戳
+CN_bw  = '\u6ce2\u4f4d\u53f7'   # 波位号
+CN_az  = '\u65b9\u4f4d'         # 方位
+CN_r   = '\u8ddd\u79bb'         # 距离
+CN_el  = '\u4fef\u4ef0'         # 俯仰 (CORRECT: 0x4FEF 0x4EF0)
+CN_v   = '\u901f\u5ea6'         # 速度
 
-def fmt_float(v, prec=4):
-    """格式化浮点数，始终保留小数点(兼容C6000编译器)"""
-    s = f"{v:.{prec}f}"
-    return s
+# More specific: must match field boundaries (not prefix of longer fields like "俯仰差幅度")
+# Pattern: field name followed by : or ：, then optional spaces, then value
+FIELD_PATTERNS = [
+    (CN_ts,  re.compile(re.escape(CN_ts) + r'[:：]\s*(\d+)')),
+    (CN_bw,  re.compile(re.escape(CN_bw) + r'[:：]\s*(\d+)')),
+    (CN_az,  re.compile(re.escape(CN_az) + r'[:：]\s*([-\d.eE+]+)')),
+    (CN_r,   re.compile(re.escape(CN_r) + r'[:：]\s*([-\d.eE+]+)')),
+    (CN_el,  re.compile(re.escape(CN_el) + r'[:：]\s*([-\d.eE+]+)')),
+    (CN_v,   re.compile(re.escape(CN_v) + r'[:：]\s*([-\d.eE+]+)')),
+]
 
-def generate():
-    # 加载CPI数据(确定帧顺序和空帧)
-    cpi_list = []
-    with open(CPI_CSV, 'r', encoding='utf-8-sig') as f:
-        for row in csv.DictReader(f):
-            cpi_list.append({
-                't': int(row['时间戳(ms)']),
-                'beam': int(row['波位号']),
-                'interval': int(row['帧间隔(ms)']),
-                'n_targets': int(row['目标数']),
-            })
+def find_first_match(patterns, line):
+    """Find the EARLIEST match among all patterns in the line."""
+    best_pos = -1
+    best_val = None
+    for name, pat in patterns:
+        m = pat.search(line)
+        if m:
+            pos = m.start()
+            if best_pos == -1 or pos < best_pos:
+                best_pos = pos
+                best_val = m.group(1)
+    return best_val
 
-    # 加载点迹数据
-    plots_by_t = defaultdict(list)
-    with open(PLOT_CSV, 'r', encoding='utf-8-sig') as f:
-        for row in csv.DictReader(f):
-            if int(row['是否有效点']) == 1:
-                t = int(row['时间戳(ms)'])
-                plots_by_t[t].append({
-                    'az': float(row['方位(度)']),
-                    'el': float(row['俯仰(度)']),
-                    'r': float(row['距离(m)']),
-                    'v': float(row['径向速度(m/s)']),
-                    'beam': int(row['波位号']),
-                })
+# Parse measured data
+print(f'Reading {INPUT}')
+with open(INPUT, encoding='utf-8') as f:
+    text = f.read()
 
-    # 取前NUM_FRAMES个CPI
-    selected_cpis = cpi_list[:NUM_FRAMES]
-    if len(selected_cpis) < NUM_FRAMES:
-        print(f"警告: 只有{len(selected_cpis)}帧数据")
+lines = text.splitlines()
+print(f'Total lines: {len(lines)}')
 
-    lines = []
-    lines.append('#include <stdio.h>')
-    lines.append('#include <c6x.h>')
-    lines.append('#include <math.h>')
-    lines.append('#include "struct.h"')
-    lines.append('#include <stdint.h>')
-    lines.append('#include <float.h>')
-    lines.append('/*')
-    lines.append(' * data_entry.c - 无人机实测数据(100帧/约16秒)')
-    lines.append(' * 数据来源: 无人机实测数据.txt')
-    lines.append(f' * 时间范围: {selected_cpis[0]["t"]}ms ~ {selected_cpis[-1]["t"]}ms ({(selected_cpis[-1]["t"]-selected_cpis[0]["t"])/1000:.1f}s)')
-    lines.append(' * 雷达参数: 17波位机扫, 波位间隔164ms, 扫描周期~2788ms')
-    lines.append(' */')
-    lines.append('void data_entry(struct TARGETPIONT_1 (*data)){')
-    lines.append('')
-    lines.append('    float pi = 3.141592653589793f;')
-    lines.append('    int i, j;')
-    lines.append('')
-    lines.append('    /* 先清零所有帧 */')
-    lines.append('    for(i = 0; i < %d; i++){' % NUM_FRAMES)
-    lines.append('        data[i].targetNum = 0;')
-    lines.append('        data[i].frameSn = 0;')
-    lines.append('        data[i].mSecond = 0.0f;')
-    lines.append('        data[i].workMode = 0;')
-    lines.append('        data[i].beamNo = 0;')
-    lines.append('        data[i].tgtnum = 1;')
-    lines.append('        data[i].Year = 0;')
-    lines.append('        data[i].Month = 0;')
-    lines.append('        data[i].Day = 0;')
-    lines.append('        data[i].Hour = 0;')
-    lines.append('        data[i].Minute = 0;')
-    lines.append('        data[i].Second = 0;')
-    lines.append('        for(j = 0; j < 60; j++){')
-    lines.append('            data[i].azi[j] = 0.0f;')
-    lines.append('            data[i].ele[j] = 0.0f;')
-    lines.append('            data[i].range[j] = 0.0f;')
-    lines.append('            data[i].velocity[j] = 0.0f;')
-    lines.append('            data[i].Use_Flag_1[j] = 0;')
-    lines.append('        }')
-    lines.append('    }')
-    lines.append('')
+# Parse points and group by timestamp (frame)
+frame_data = {}  # ts -> list of (beamNo, azi_rad, range, ele_rad, vr)
+skipped = 0
 
-    # 填充每帧数据
-    for frame_idx, cpi in enumerate(selected_cpis):
-        t = cpi['t']
-        beam = cpi['beam']
-        n = cpi['n_targets']
-        plots = plots_by_t.get(t, [])
+for line in lines:
+    if not line.strip():
+        continue
+    
+    ts_m = re.search(CN_ts + r'[:：]\s*(\d+)', line)
+    if not ts_m:
+        continue
+    ts = int(ts_m.group(1))
+    
+    # Find each field by position (earliest match wins for each field type)
+    # But we need position-aware matching to avoid "俯仰差幅度" matching before "俯仰"
+    # Better: extract ALL name:value pairs, then pick the right ones
+    
+    # Strategy: split by known field names, take what comes after each
+    # For azimuth/distance/elevation/velocity, search with negative lookbehind
+    # to avoid matching field name that's a prefix of another
+    
+    # Actually, the simplest robust approach: 
+    # Search for each field name with position tracking
+    # Use word-boundary-like approach: field name must be followed immediately by : or ：
+    
+    def get_field(name, line, is_num=True):
+        """Get field value for given Chinese field name."""
+        # Use pattern: exact field name followed by colon
+        pat = re.compile(re.escape(name) + r'[:：]\s*([-\d.eE+]+)')
+        m = pat.search(line)
+        if m:
+            return float(m.group(1)) if is_num else m.group(1)
+        return None
+    
+    az = get_field(CN_az, line)
+    r  = get_field(CN_r, line)
+    if az is None or r is None:
+        continue
+    
+    bw = get_field(CN_bw, line)
+    bw = int(bw) if bw is not None else 0
+    
+    el = get_field(CN_el, line)
+    el_val = el if el is not None else 0.0
+    
+    vr = get_field(CN_v, line)
+    vr_val = vr if vr is not None else 0.0
+    
+    if 50 < r < 30000 and ts > 0:
+        frame_data.setdefault(ts, []).append(
+            (bw, math.radians(az), r, math.radians(el_val), vr_val)
+        )
 
-        # 使用实际有效点数(从点迹数据中统计,可能与CPI标注的n_targets略有出入因为筛选条件)
-        real_plots = []
-        for p in plots:
-            real_plots.append(p)
-        actual_n = len(real_plots)
+frame_ts = sorted(frame_data.keys())
+print(f'Valid frames: {len(frame_ts)}')
+print(f'Time range: {frame_ts[0]}~{frame_ts[-1]}ms = {(frame_ts[-1]-frame_ts[0])/1000:.1f}s')
 
-        lines.append(f'    /* Frame {frame_idx}: t={t}ms, beam={beam}, targets={actual_n} */')
-        lines.append(f'    data[{frame_idx}].targetNum = {actual_n};')
-        lines.append(f'    data[{frame_idx}].frameSn = {frame_idx};')
-        lines.append(f'    data[{frame_idx}].mSecond = {t}.0f;')
-        lines.append(f'    data[{frame_idx}].workMode = 0;')
-        lines.append(f'    data[{frame_idx}].beamNo = {beam};')
-        lines.append(f'    data[{frame_idx}].Month = 0;')
+# Get ALL timestamps from file (including frames with no valid data)
+import re as _re
+all_ts = sorted(set(int(x) for x in _re.findall(CN_ts + r'[:：](\d+)', text)))
+print(f'All unique timestamps in file: {len(all_ts)}')
 
-        for j, p in enumerate(real_plots[:60]):  # 最多60个点
-            az = p['az']
-            el = p['el']
-            r = p['r']
-            v = abs(p['v'])  # velocity取绝对值(与data_process_func一致)
-            lines.append(f'    data[{frame_idx}].azi[{j}] = {fmt_float(az,4)}/180.0f*pi;')
-            lines.append(f'    data[{frame_idx}].ele[{j}] = {fmt_float(el,4)}/180.0f*pi;')
-            lines.append(f'    data[{frame_idx}].range[{j}] = {fmt_float(r,2)}f;')
-            lines.append(f'    data[{frame_idx}].velocity[{j}] = {fmt_float(v,4)}f;')
-            lines.append(f'    data[{frame_idx}].Use_Flag_1[{j}] = 1;')
+if len(all_ts) < N_FRAMES:
+    print(f'WARNING: only {len(all_ts)} timestamps, using ALL')
+    selected_ts = all_ts
+else:
+    selected_ts = all_ts[:N_FRAMES]
+    print(f'Using first {N_FRAMES} frames (all timestamps): {selected_ts[0]}~{selected_ts[-1]}ms = {(selected_ts[-1]-selected_ts[0])/1000:.1f}s')
 
-        lines.append('')
+# Verify: every selected_ts should have an entry in frame_data (even if empty list)
+no_data = [t for t in selected_ts if t not in frame_data]
+print(f'Frames with NO valid data (targetNum=0): {len(no_data)}')
+# For empty frames, ensure frame_data has empty list
+for t in no_data:
+    frame_data[t] = []
 
-    lines.append('}')
-    lines.append('')
+pts_counts = [len(frame_data[t]) for t in selected_ts]
+print(f'Points/frame: min={min(pts_counts)}, max={max(pts_counts)}, avg={sum(pts_counts)/len(pts_counts):.1f}')
 
-    content = '\n'.join(lines)
-    with open(OUT_FILE, 'w', encoding='utf-8') as f:
-        f.write(content)
+# Quick sanity check on Frame 0
+ts0 = selected_ts[0]
+pts0 = frame_data[ts0]
+print(f'\nSanity Frame 0 (t={ts0}ms):')
+for i, (bw, az_r, rng, el_r, vr) in enumerate(pts0[:4]):
+    print(f'  pt[{i}]: bw={bw}, azi={az_r:.6f}rad={math.degrees(az_r):.4f}deg, ele={el_r:.6f}rad={math.degrees(el_r):.4f}deg, r={rng:.1f}, v={vr:.4f}')
 
-    print(f"生成完成: {OUT_FILE}")
-    print(f"  帧数: {NUM_FRAMES}")
-    total_plots = sum(len(plots_by_t.get(cpi['t'],[])) for cpi in selected_cpis)
-    nonempty = sum(1 for cpi in selected_cpis if len(plots_by_t.get(cpi['t'],[]))>0)
-    empty = NUM_FRAMES - nonempty
-    print(f"  有目标帧: {nonempty}, 空帧: {empty}")
-    print(f"  总点迹数: {total_plots}")
+# Compare with backup
+bak_path = os.path.join(BASE, 'data_entry_500frames.c.bak')
+if os.path.exists(bak_path):
+    c_bak = open(bak_path, encoding='gbk', errors='ignore').read()
+    import re as _re
+    bak_ele0 = _re.search(r'data\[0\]\.ele\[0\] = ([-\d.]+)f', c_bak)
+    if bak_ele0:
+        print(f'  backup ele[0] = {bak_ele0.group(1)} rad')
+        if pts0:
+            print(f'  new    ele[0] = {pts0[0][3]:.6f} rad')
+            match = abs(float(bak_ele0.group(1)) - pts0[0][3]) < 0.001
+            print(f'  MATCH: {match} {"YES" if match else "NO - STILL WRONG!"}')
 
-if __name__ == '__main__':
-    generate()
+# Build C code (ASCII-only)
+out = []
+out.append('/*')
+out.append(f' * data_entry.c - {len(selected_ts)} frames of simulated radar input (auto-generated)')
+out.append(' * Source: measured radar data (UTF-8)')
+out.append(f' * Time span: {(selected_ts[-1]-selected_ts[0])/1000:.1f}s ({selected_ts[0]}~{selected_ts[-1]}ms)')
+out.append(f' * Split into sub-functions ({FRAMES_PER_FUNC} frames each) for C6000 compiler')
+out.append(' */')
+out.append('')
+out.append('#include <stdio.h>')
+out.append('#include <c6x.h>')
+out.append('#include <math.h>')
+out.append('#include "struct.h"')
+out.append('')
+out.append('#ifndef pi')
+out.append('#define pi 3.1415926535f')
+out.append('#endif')
+out.append('')
+
+n_funcs = (len(selected_ts) + FRAMES_PER_FUNC - 1) // FRAMES_PER_FUNC
+
+for fi in range(n_funcs):
+    start = fi * FRAMES_PER_FUNC
+    end = min(start + FRAMES_PER_FUNC, len(selected_ts))
+    
+    out.append('static void data_entry_fill_{:02d}(struct TARGETPIONT_1 (*data)){{'.format(fi))
+    
+    if fi == 0:
+        out.append('    int i, j;')
+        out.append('    /* Zero all {} frames first */'.format(len(selected_ts)))
+        out.append('    for(i = 0; i < {}; i++){{'.format(len(selected_ts)))
+        out.append('        data[i].targetNum = 0;')
+        out.append('        data[i].frameSn = 0;')
+        out.append('        data[i].mSecond = 0.0f;')
+        out.append('        data[i].workMode = 0;')
+        out.append('        data[i].beamNo = 0;')
+        out.append('        data[i].tgtnum = 1;')
+        out.append('        data[i].Year = 0;')
+        out.append('        data[i].Month = 0;')
+        out.append('        data[i].Day = 0;')
+        out.append('        data[i].Hour = 0;')
+        out.append('        data[i].Minute = 0;')
+        out.append('        data[i].Second = 0;')
+        out.append('        for(j = 0; j < 60; j++){')
+        out.append('            data[i].azi[j] = 0.0f;')
+        out.append('            data[i].ele[j] = 0.0f;')
+        out.append('            data[i].range[j] = 0.0f;')
+        out.append('            data[i].velocity[j] = 0.0f;')
+        out.append('            data[i].Use_Flag_1[j] = 0;')
+        out.append('        }')
+        out.append('    }')
+    
+    out.append('')
+    
+    for idx in range(start, end):
+        ts = selected_ts[idx]
+        pts = frame_data[ts][:60]
+        n = len(pts)
+        bn = pts[0][0] if pts else 0
+        
+        out.append('    /* Frame {:4d}  t={:7d}ms  beamNo={:2d}  n={:2d} */'.format(idx, ts, bn, n))
+        out.append('    data[{:4d}].targetNum = {:2d};'.format(idx, n))
+        out.append('    data[{:4d}].frameSn = {:4d};'.format(idx, idx))
+        out.append('    data[{:4d}].mSecond = {:7d}.0f;'.format(idx, ts))
+        out.append('    data[{:4d}].workMode = 0;'.format(idx))
+        out.append('    data[{:4d}].beamNo = {:2d};'.format(idx, bn))
+        out.append('    data[{:4d}].Month = 0;'.format(idx))
+        
+        for pj, (bw, azi_r, rng, ele_r, vr) in enumerate(pts):
+            out.append('    data[{:4d}].azi[{:2d}] = {:10.4f}f / 180.0f * pi;'.format(idx, pj, math.degrees(azi_r)))
+            out.append('    data[{:4d}].ele[{:2d}] = {:10.4f}f / 180.0f * pi;'.format(idx, pj, math.degrees(ele_r)))
+            out.append('    data[{:4d}].range[{:2d}] = {:10.2f}f;'.format(idx, pj, rng))
+            out.append('    data[{:4d}].velocity[{:2d}] = {:10.4f}f;'.format(idx, pj, vr))
+            out.append('    data[{:4d}].Use_Flag_1[{:2d}] = 1;'.format(idx, pj))
+        
+        out.append('')
+    
+    out.append('}')
+    out.append('')
+
+out.append('void data_entry(struct TARGETPIONT_1 (*data)){')
+for fi in range(n_funcs):
+    out.append('    data_entry_fill_{:02d}(data);'.format(fi))
+out.append('}')
+
+result = '\n'.join(out) + '\n'
+
+# Verify ASCII-only
+bad = [(i, c) for i, c in enumerate(result) if ord(c) > 127]
+if bad:
+    print(f'\nERROR: {len(bad)} non-ASCII chars!')
+    for pos, ch in bad[:3]:
+        ctx = result[max(0,pos-30):pos+30]
+        print(f'  pos={pos}, code={hex(ord(ch))}, ctx={repr(ctx)}')
+    sys.exit(1)
+
+with open(OUTPUT, 'w', encoding='ascii', newline='') as f:
+    f.write(result)
+
+size = os.path.getsize(OUTPUT)
+print(f'\n=== SUCCESS ===')
+print(f'Output: {OUTPUT}')
+print(f'Size: {size} bytes ({size/1024:.1f} KB)')
+print(f'Functions: {n_funcs}')
+print(f'Frames: 0 ~ {len(selected_ts)-1}')
+print(f'Time: {(selected_ts[-1]-selected_ts[0])/1000:.1f}s')

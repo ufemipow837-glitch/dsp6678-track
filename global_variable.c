@@ -29,8 +29,8 @@ float lag_time;
 
 float d;
 float alpha1;
-int asso_info1[100] = {0};
-int asso_info2[100] = {0};
+int asso_info1[500] = {0};
+int asso_info2[500] = {0};
 int info_count1 = 0;
 int info_count2 = 0;
 
@@ -145,15 +145,15 @@ float IPI[6][6] = { 0 };
 //float n04 = 0;
 
 /* ========================================================================
- * 核心航迹/点迹池全局变量定义（统一放在此处，方便集成到实物工程）
- * 编译此文件后，外部无需再重复定义这些变量，直接包含头文件即可使用
+ * 核心��/点迹池全�变量定义（统�放在此�，方便集成到实物工程）
+ * 编译此文件后，�部无需再重复定义这些变量，直接包含头文件即�使用
  * ======================================================================== */
 
 #pragma DATA_SECTION(reliable_track, ".far:DDR");
 struct reliable reliable_track[num_reliable] = {0};
 
 #pragma DATA_SECTION(target_data, ".far:DDR");
-struct TARGETPIONT_1 target_data[100] = {0};
+struct TARGETPIONT_1 target_data[1300] = {0};
 
 #pragma DATA_SECTION(temp_track, ".far:DDR");
 struct temp_track temp_track[num_temp][3] = {0};

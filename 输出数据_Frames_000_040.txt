@@ -1,0 +1,371 @@
+[C66xx_0] 
+====================  ====================
+Frame 000 | t=898140ms | n=4 | Cycle=0.035ms | beam=15
+  -> Reliable Tracks: 0  [Sn=-1 init_cand=-1 temp_before=-1 temp_after=-1 rel_hist=-1]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=88.51 el=0.19 r=380.6 bn=16
+    [DBG track_init] cand[1] flags=100 az=88.88 el=9.58 r=1056.4 bn=16
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 001 | t=898304ms | n=3 | Cycle=0.155ms | beam=16
+  -> Reliable Tracks: 0  [Sn=1 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=-1.41 el=1.46 r=8824.8 bn=0
+    [DBG track_init] cand[1] flags=100 az=4.14 el=12.23 r=2228.4 bn=0
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 002 | t=898468ms | n=2 | Cycle=0.148ms | beam=0
+  -> Reliable Tracks: 0  [Sn=2 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=8.23 el=5.28 r=2753.7 bn=1
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 003 | t=898632ms | n=1 | Cycle=0.120ms | beam=1
+  -> Reliable Tracks: 0  [Sn=3 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=16.82 el=5.17 r=1094.8 bn=2
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 004 | t=898796ms | n=1 | Cycle=0.120ms | beam=2
+  -> Reliable Tracks: 0  [Sn=4 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=18.51 el=8.56 r=960.2 bn=3
+    [DBG track_init] cand[1] flags=100 az=17.39 el=4.79 r=1095.8 bn=3
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 005 | t=898960ms | n=2 | Cycle=0.147ms | beam=3
+  -> Reliable Tracks: 0  [Sn=5 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=16
+    [DBG track_init] cand[0] flags=100 az=27.80 el=-1.66 r=1339.1 bn=4
+    [DBG track_init] cand[1] flags=100 az=25.99 el=-0.64 r=1458.2 bn=4
+    [DBG track_init] cand[2] flags=100 az=26.83 el=-0.50 r=2490.1 bn=4
+    [DBG track_init] cand[3] flags=100 az=25.87 el=0.39 r=3834.7 bn=4
+    [DBG track_init] cand[4] flags=100 az=24.63 el=0.03 r=3931.2 bn=4
+    [DBG new_rel] cand=16 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100 [5]=100 [6]=100 [7]=100 [8]=100 [9]=100
+    [DBG new_rel] before_while cand_left=16 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=16
+Frame 006 | t=899124ms | n=16 | Cycle=0.299ms | beam=4
+  -> Reliable Tracks: 0  [Sn=6 init_cand=16 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=16
+    [DBG track_init] cand[0] flags=100 az=27.80 el=-1.66 r=1339.1 bn=4
+    [DBG track_init] cand[1] flags=100 az=25.99 el=-0.64 r=1458.2 bn=4
+    [DBG track_init] cand[2] flags=100 az=26.83 el=-0.50 r=2490.1 bn=4
+    [DBG track_init] cand[3] flags=100 az=25.87 el=0.39 r=3834.7 bn=4
+    [DBG track_init] cand[4] flags=100 az=24.63 el=0.03 r=3931.2 bn=4
+    [DBG new_rel] cand=16 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100 [5]=100 [6]=100 [7]=100 [8]=100 [9]=100
+    [DBG new_rel] before_while cand_left=16 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=16
+Frame 007 | t=899288ms | n=0 | Cycle=0.258ms | beam=5
+  -> Reliable Tracks: 0  [Sn=7 init_cand=16 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=35.84 el=-0.26 r=11490.6 bn=6
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 008 | t=899452ms | n=1 | Cycle=0.121ms | beam=6
+  -> Reliable Tracks: 0  [Sn=8 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=10
+    [DBG track_init] cand[0] flags=100 az=38.84 el=-1.70 r=1008.2 bn=7
+    [DBG track_init] cand[1] flags=100 az=37.39 el=-0.60 r=1504.2 bn=7
+    [DBG track_init] cand[2] flags=100 az=41.78 el=-1.66 r=1673.1 bn=7
+    [DBG track_init] cand[3] flags=100 az=39.98 el=-1.17 r=1773.3 bn=7
+    [DBG track_init] cand[4] flags=100 az=39.91 el=-0.26 r=2538.7 bn=7
+    [DBG new_rel] cand=10 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100 [5]=100 [6]=100 [7]=100 [8]=100 [9]=100
+    [DBG new_rel] before_while cand_left=10 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=10
+Frame 009 | t=899616ms | n=10 | Cycle=0.275ms | beam=7
+  -> Reliable Tracks: 0  [Sn=9 init_cand=10 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=44.84 el=-1.05 r=2057.6 bn=8
+    [DBG track_init] cand[1] flags=100 az=46.17 el=23.63 r=5629.8 bn=8
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 010 | t=899780ms | n=2 | Cycle=0.148ms | beam=8
+  -> Reliable Tracks: 0  [Sn=10 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=5
+    [DBG track_init] cand[0] flags=100 az=50.49 el=-1.47 r=1335.4 bn=9
+    [DBG track_init] cand[1] flags=100 az=48.78 el=5.89 r=1987.0 bn=9
+    [DBG track_init] cand[2] flags=100 az=53.59 el=8.14 r=10147.4 bn=9
+    [DBG track_init] cand[3] flags=100 az=50.08 el=20.44 r=1818.9 bn=9
+    [DBG track_init] cand[4] flags=100 az=50.17 el=20.83 r=5442.5 bn=9
+    [DBG new_rel] cand=5 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100
+    [DBG new_rel] before_while cand_left=5 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=5
+Frame 011 | t=899944ms | n=5 | Cycle=0.230ms | beam=9
+  -> Reliable Tracks: 0  [Sn=11 init_cand=5 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=54.21 el=0.75 r=3451.7 bn=10
+    [DBG track_init] cand[1] flags=100 az=54.35 el=8.45 r=1125.1 bn=10
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 012 | t=900108ms | n=2 | Cycle=0.148ms | beam=10
+  -> Reliable Tracks: 0  [Sn=12 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=63.94 el=9.17 r=3978.2 bn=11
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 013 | t=900272ms | n=1 | Cycle=0.120ms | beam=11
+  -> Reliable Tracks: 0  [Sn=13 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=64.34 el=5.28 r=1915.5 bn=12
+    [DBG track_init] cand[1] flags=100 az=61.85 el=7.74 r=3955.7 bn=12
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 014 | t=900436ms | n=2 | Cycle=0.148ms | beam=12
+  -> Reliable Tracks: 0  [Sn=14 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=64.34 el=5.28 r=1915.5 bn=12
+    [DBG track_init] cand[1] flags=100 az=61.85 el=7.74 r=3955.7 bn=12
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 015 | t=900600ms | n=0 | Cycle=0.144ms | beam=13
+  -> Reliable Tracks: 0  [Sn=15 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=73.61 el=-1.00 r=1271.2 bn=14
+    [DBG track_init] cand[1] flags=100 az=77.37 el=-0.43 r=2585.6 bn=14
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 016 | t=900764ms | n=2 | Cycle=0.148ms | beam=14
+  -> Reliable Tracks: 0  [Sn=16 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=73.61 el=-1.00 r=1271.2 bn=14
+    [DBG track_init] cand[1] flags=100 az=77.37 el=-0.43 r=2585.6 bn=14
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 017 | t=900928ms | n=0 | Cycle=0.145ms | beam=15
+  -> Reliable Tracks: 0  [Sn=17 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=0
+Frame 018 | t=901092ms | n=0 | Cycle=0.061ms | beam=16
+  -> Reliable Tracks: 0  [Sn=18 init_cand=0 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=-1.30 el=-0.78 r=8802.4 bn=0
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 019 | t=901256ms | n=1 | Cycle=0.121ms | beam=0
+  -> Reliable Tracks: 0  [Sn=19 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=9.40 el=13.04 r=4242.5 bn=1
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 020 | t=901420ms | n=1 | Cycle=0.121ms | beam=1
+  -> Reliable Tracks: 0  [Sn=20 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=16.58 el=4.62 r=1124.1 bn=2
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 021 | t=901584ms | n=1 | Cycle=0.121ms | beam=2
+  -> Reliable Tracks: 0  [Sn=21 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=17.28 el=4.61 r=1124.8 bn=3
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 022 | t=901748ms | n=1 | Cycle=0.120ms | beam=3
+  -> Reliable Tracks: 0  [Sn=22 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=16
+    [DBG track_init] cand[0] flags=100 az=27.63 el=-1.79 r=1322.5 bn=4
+    [DBG track_init] cand[1] flags=100 az=23.15 el=-1.15 r=1391.2 bn=4
+    [DBG track_init] cand[2] flags=100 az=25.48 el=-0.81 r=2009.6 bn=4
+    [DBG track_init] cand[3] flags=100 az=21.53 el=0.78 r=2181.1 bn=4
+    [DBG track_init] cand[4] flags=100 az=26.19 el=-0.62 r=1457.9 bn=4
+    [DBG new_rel] cand=16 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100 [5]=100 [6]=100 [7]=100 [8]=100 [9]=100
+    [DBG new_rel] before_while cand_left=16 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=16
+Frame 023 | t=901912ms | n=16 | Cycle=0.298ms | beam=4
+  -> Reliable Tracks: 0  [Sn=23 init_cand=16 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=16
+    [DBG track_init] cand[0] flags=100 az=27.63 el=-1.79 r=1322.5 bn=4
+    [DBG track_init] cand[1] flags=100 az=23.15 el=-1.15 r=1391.2 bn=4
+    [DBG track_init] cand[2] flags=100 az=25.48 el=-0.81 r=2009.6 bn=4
+    [DBG track_init] cand[3] flags=100 az=21.53 el=0.78 r=2181.1 bn=4
+    [DBG track_init] cand[4] flags=100 az=26.19 el=-0.62 r=1457.9 bn=4
+    [DBG new_rel] cand=16 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100 [5]=100 [6]=100 [7]=100 [8]=100 [9]=100
+    [DBG new_rel] before_while cand_left=16 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=16
+Frame 024 | t=902076ms | n=0 | Cycle=0.258ms | beam=5
+  -> Reliable Tracks: 0  [Sn=24 init_cand=16 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=0
+Frame 025 | t=902240ms | n=0 | Cycle=0.061ms | beam=6
+  -> Reliable Tracks: 0  [Sn=25 init_cand=0 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=18
+    [DBG track_init] cand[0] flags=100 az=36.84 el=-1.37 r=1433.0 bn=7
+    [DBG track_init] cand[1] flags=100 az=37.40 el=-1.82 r=1506.3 bn=7
+    [DBG track_init] cand[2] flags=100 az=41.63 el=-1.37 r=1671.7 bn=7
+    [DBG track_init] cand[3] flags=100 az=40.14 el=-1.46 r=1728.8 bn=7
+    [DBG track_init] cand[4] flags=100 az=39.85 el=-1.62 r=1777.0 bn=7
+    [DBG new_rel] cand=18 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100 [5]=100 [6]=100 [7]=100 [8]=100 [9]=100
+    [DBG new_rel] before_while cand_left=18 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=18
+Frame 026 | t=902404ms | n=18 | Cycle=0.307ms | beam=7
+  -> Reliable Tracks: 0  [Sn=26 init_cand=18 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=3
+    [DBG track_init] cand[0] flags=100 az=44.92 el=0.37 r=4671.9 bn=8
+    [DBG track_init] cand[1] flags=100 az=41.05 el=-0.16 r=4748.8 bn=8
+    [DBG track_init] cand[2] flags=100 az=46.72 el=2.02 r=5199.6 bn=8
+    [DBG new_rel] cand=3 temp_before=0 flags: [0]=100 [1]=100 [2]=100
+    [DBG new_rel] before_while cand_left=3 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=3
+Frame 027 | t=902568ms | n=3 | Cycle=0.176ms | beam=8
+  -> Reliable Tracks: 0  [Sn=27 init_cand=3 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=4
+    [DBG track_init] cand[0] flags=100 az=52.82 el=0.26 r=1393.6 bn=9
+    [DBG track_init] cand[1] flags=100 az=52.32 el=7.20 r=10624.8 bn=9
+    [DBG track_init] cand[2] flags=100 az=48.52 el=20.55 r=1409.8 bn=9
+    [DBG track_init] cand[3] flags=100 az=49.02 el=21.61 r=5009.5 bn=9
+    [DBG new_rel] cand=4 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100
+    [DBG new_rel] before_while cand_left=4 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=4
+Frame 028 | t=902732ms | n=4 | Cycle=0.203ms | beam=9
+  -> Reliable Tracks: 0  [Sn=28 init_cand=4 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=5
+    [DBG track_init] cand[0] flags=100 az=54.92 el=-2.19 r=1072.9 bn=10
+    [DBG track_init] cand[1] flags=100 az=56.05 el=6.71 r=10646.5 bn=10
+    [DBG track_init] cand[2] flags=100 az=55.32 el=7.35 r=1145.0 bn=10
+    [DBG track_init] cand[3] flags=100 az=55.70 el=7.04 r=3713.4 bn=10
+    [DBG track_init] cand[4] flags=100 az=53.77 el=6.77 r=10650.9 bn=10
+    [DBG new_rel] cand=5 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100
+    [DBG new_rel] before_while cand_left=5 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=5
+Frame 029 | t=902896ms | n=5 | Cycle=0.231ms | beam=10
+  -> Reliable Tracks: 0  [Sn=29 init_cand=5 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=3
+    [DBG track_init] cand[0] flags=100 az=58.60 el=-0.34 r=358.9 bn=11
+    [DBG track_init] cand[1] flags=100 az=60.87 el=1.10 r=3618.0 bn=11
+    [DBG track_init] cand[2] flags=100 az=61.10 el=1.74 r=3952.9 bn=11
+    [DBG new_rel] cand=3 temp_before=0 flags: [0]=100 [1]=100 [2]=100
+    [DBG new_rel] before_while cand_left=3 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=3
+Frame 030 | t=903060ms | n=3 | Cycle=0.175ms | beam=11
+  -> Reliable Tracks: 0  [Sn=30 init_cand=3 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=64.72 el=0.93 r=2897.6 bn=12
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 031 | t=903224ms | n=1 | Cycle=0.121ms | beam=12
+  -> Reliable Tracks: 0  [Sn=31 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=2
+    [DBG track_init] cand[0] flags=100 az=71.61 el=2.21 r=12424.5 bn=13
+    [DBG track_init] cand[1] flags=100 az=69.80 el=8.67 r=1729.6 bn=13
+    [DBG new_rel] cand=2 temp_before=0 flags: [0]=100 [1]=100
+    [DBG new_rel] before_while cand_left=2 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=2
+Frame 032 | t=903388ms | n=2 | Cycle=0.148ms | beam=13
+  -> Reliable Tracks: 0  [Sn=32 init_cand=2 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=77.94 el=-1.12 r=1894.9 bn=14
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 033 | t=903552ms | n=1 | Cycle=0.121ms | beam=14
+  -> Reliable Tracks: 0  [Sn=33 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=77.94 el=-1.12 r=1894.9 bn=14
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 034 | t=903716ms | n=0 | Cycle=0.120ms | beam=15
+  -> Reliable Tracks: 0  [Sn=34 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=0
+Frame 035 | t=903880ms | n=0 | Cycle=0.061ms | beam=16
+  -> Reliable Tracks: 0  [Sn=35 init_cand=0 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=-1.81 el=0.55 r=8775.8 bn=0
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 036 | t=904044ms | n=1 | Cycle=0.121ms | beam=0
+  -> Reliable Tracks: 0  [Sn=36 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=-1.81 el=0.55 r=8775.8 bn=0
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 037 | t=904208ms | n=0 | Cycle=0.120ms | beam=1
+  -> Reliable Tracks: 0  [Sn=37 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=17.39 el=4.77 r=1153.1 bn=2
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 038 | t=904372ms | n=1 | Cycle=0.121ms | beam=2
+  -> Reliable Tracks: 0  [Sn=38 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=18.39 el=3.80 r=1154.6 bn=3
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1
+Frame 039 | t=904536ms | n=1 | Cycle=0.121ms | beam=3
+  -> Reliable Tracks: 0  [Sn=39 init_cand=1 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=17
+    [DBG track_init] cand[0] flags=100 az=28.05 el=-1.22 r=1314.7 bn=4
+    [DBG track_init] cand[1] flags=100 az=26.20 el=-0.82 r=1443.9 bn=4
+    [DBG track_init] cand[2] flags=100 az=26.31 el=-0.64 r=1457.9 bn=4
+    [DBG track_init] cand[3] flags=100 az=27.04 el=-0.59 r=2465.6 bn=4
+    [DBG track_init] cand[4] flags=100 az=26.75 el=-0.55 r=2513.3 bn=4
+    [DBG new_rel] cand=17 temp_before=0 flags: [0]=100 [1]=100 [2]=100 [3]=100 [4]=100 [5]=100 [6]=100 [7]=100 [8]=100 [9]=100
+    [DBG new_rel] before_while cand_left=17 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=17
+Frame 040 | t=904700ms | n=17 | Cycle=0.302ms | beam=4
+  -> Reliable Tracks: 0  [Sn=40 init_cand=17 temp_before=0 temp_after=0 rel_hist=0]
+------------------------------------------------------------------------
+    [DBG track_init] temp_after_compress=0 track_asso_num=1
+    [DBG track_init] cand[0] flags=100 az=28.91 el=5.69 r=2729.3 bn=5
+    [DBG new_rel] cand=1 temp_before=0 flags: [0]=100
+    [DBG new_rel] before_while cand_left=1 reliable=0
+    [DBG new_rel] end_of_scan found_any=0 best_idx=-1 cand_left=1

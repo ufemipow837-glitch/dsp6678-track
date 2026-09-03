@@ -19,7 +19,7 @@
 extern struct debugger_track track_debugger;
 
 #define ASSO_VELOCITY_CHANGE_THRESHOLD 80.0f
-#define PRE_GATE_DISTANCE  250.0f
+#define PRE_GATE_DISTANCE  1200.0f  // 放宽距离门覆盖跨波束距离跳变
 
 static void compute_R_from_Z(const float *Z, float R_out[3][3])
 {
@@ -137,6 +137,16 @@ void track_asso(struct target_track (*target_data),
         pred_y = cur_y + T_asso * cur_vy;
         pred_z = cur_z + T_asso * cur_vz;
         gate = PRE_GATE_DISTANCE + T_asso * 150.0f;
+        if(reliable_track[loop_of_track].predict_flag > 3){
+            /* DRONE TRACK: tighten gate during miss, don't widen!
+               When drone is not visible, it's just radar scanning other beams,
+               NOT that drone flew away. Keep gate tight to reject clutter. */
+            if(reliable_track[loop_of_track].imm.is_drone && reliable_track[loop_of_track].predict_flag > 10){
+                gate *= 0.7f;
+            } else {
+                gate *= 2.0f;
+            }
+        }
         gate_sq = gate * gate;
 
         for(loop_of_dot = 0; loop_of_dot < cpi_num; loop_of_dot++){
@@ -148,6 +158,13 @@ void track_asso(struct target_track (*target_data),
             if(lag_time < time_down || lag_time > time_up){
                 continue;
             }
+
+            /* === DRONE TRACK BEAM PENALTY (soft, NOT hard reject) ===
+               For drone tracks, points NOT from init_beamNo +/- 1 get d *= 1.5.
+               Real drone may occasionally appear in adjacent beam; we don't hard-reject,
+               but penalize clutter points from BW far from where drone was born.
+               Actual penalty is applied after imm_d_cal below. */
+
 
             dx = target_data[loop_of_dot].x - pred_x;
             dy = target_data[loop_of_dot].y - pred_y;
@@ -169,6 +186,27 @@ void track_asso(struct target_track (*target_data),
             memcpy(&imm_tmp, &reliable_track[loop_of_track].imm, sizeof(IMM_STATE));
             imm_predict(&imm_tmp, o, Xp, Pp);
             d = imm_d_cal(&imm_tmp, o, Z_obse, (const float*)R_mat);
+
+            /* Beam check for drone tracks:
+               - predict_flag > 10 (many consecutive misses): HARD reject non-adjacent beams
+               - predict_flag <= 10: soft penalty d *= 1.5
+               Rationale: drone missing for 10+ frames is radar beam cycling, not drone lost.
+               Strict beam gating prevents clutter lock during multi-beam scan gaps. */
+            if(reliable_track[loop_of_track].imm.is_drone){
+                uint32_t cur_bn = target_data[loop_of_dot].beamNo;
+                uint32_t init_bn = reliable_track[loop_of_track].init_beamNo;
+                if(init_bn >= 1 && init_bn <= 16){
+                    int bd = (int)cur_bn - (int)init_bn;
+                    if(bd < 0) bd = -bd;
+                    if(bd > 1){
+                        if(reliable_track[loop_of_track].predict_flag > 10){
+                            continue;  /* HARD reject: too many misses, reject clutter */
+                        } else {
+                            d *= 1.5f; /* Soft penalty during normal operation */
+                        }
+                    }
+                }
+            }
 
             if(d < best_dist_val){
                 best_dist_val = d;
@@ -217,20 +255,31 @@ void track_asso(struct target_track (*target_data),
             }
             continue;
         }
-        if(best_dist_val >= TRACK_ASSO_TH){
-            reliable_track[loop_of_track].predict_flag++;
-            if(T_asso > 0.001f){
-                memcpy(&imm_s, &reliable_track[loop_of_track].imm, sizeof(IMM_STATE));
-                imm_miss(&imm_s, T_asso);
-                imm_get_fused_state(&imm_s, Xm, Pm);
-                memcpy(&reliable_track[loop_of_track].imm, &imm_s, sizeof(IMM_STATE));
-                memcpy(reliable_track[loop_of_track].X0, Xm, sizeof(Xm));
-                memcpy(reliable_track[loop_of_track].P0, Pm, sizeof(Pm));
-                memcpy(reliable_track[loop_of_track].X1, Xm, sizeof(Xm));
-                memcpy(reliable_track[loop_of_track].P1, Pm, sizeof(Pm));
-                reliable_track[loop_of_track].mSecond = target_data[best_dot_idx].mSecond;
+        {
+            float asso_th = TRACK_ASSO_TH;
+            if(reliable_track[loop_of_track].predict_flag > 3){
+                /* Same drone-tight logic for Mahalanobis threshold */
+                if(reliable_track[loop_of_track].imm.is_drone && reliable_track[loop_of_track].predict_flag > 10){
+                    asso_th *= 0.7f;
+                } else {
+                    asso_th *= 2.0f;
+                }
             }
-            continue;
+            if(best_dist_val >= asso_th){
+                reliable_track[loop_of_track].predict_flag++;
+                if(T_asso > 0.001f){
+                    memcpy(&imm_s, &reliable_track[loop_of_track].imm, sizeof(IMM_STATE));
+                    imm_miss(&imm_s, T_asso);
+                    imm_get_fused_state(&imm_s, Xm, Pm);
+                    memcpy(&reliable_track[loop_of_track].imm, &imm_s, sizeof(IMM_STATE));
+                    memcpy(reliable_track[loop_of_track].X0, Xm, sizeof(Xm));
+                    memcpy(reliable_track[loop_of_track].P0, Pm, sizeof(Pm));
+                    memcpy(reliable_track[loop_of_track].X1, Xm, sizeof(Xm));
+                    memcpy(reliable_track[loop_of_track].P1, Pm, sizeof(Pm));
+                    reliable_track[loop_of_track].mSecond = target_data[best_dot_idx].mSecond;
+                }
+                continue;
+            }
         }
 
         Z_obse[0] = target_data[best_dot_idx].x;

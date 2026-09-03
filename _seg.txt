@@ -1,0 +1,465 @@
+    for(i = 0; i < num_candidates; i++){
+                // 跳过已处理的候选
+                if(track_asso_data[i*3+0].asso_flag == 0 &&
+                   track_asso_data[i*3+1].asso_flag == 0 &&
+                   track_asso_data[i*3+2].asso_flag == 0){
+                    continue;
+                }
+
+                count = 0;
+                for(j = 0; j < 3; j++){
+                    if(track_asso_data[i*3+j].asso_flag == 1){
+                        count++;
+                    }
+                }
+
+                if(count >= MIN_POINTS_FOR_RELIABLE){
+                    confidence = calculate_confidence_for_track(
+                        &track_asso_data[i*3+0],
+                        &track_asso_data[i*3+1],
+                        &track_asso_data[i*3+2]);
+
+                    if(confidence > best_confidence){
+                    float vr_avg_check;
+                    vr_avg_check = (fabsf(track_asso_data[i*3+0].radar_vr)
+                                  + fabsf(track_asso_data[i*3+1].radar_vr)
+                                  + fabsf(track_asso_data[i*3+2].radar_vr)) / 3.0f;
+
+                    vx = track_asso_data[i*3+2].X[1];
+                    vy = track_asso_data[i*3+2].X[3];
+                    vz = track_asso_data[i*3+2].X[5];
+                    spd = sqrtf(vx*vx + vy*vy + vz*vz);
+
+                    /* [BUG11 fix] vr >= Vmin removed: drone vr passes zero near R turning point (4500m)
+                     * would fail Vmin=2 check. Keep vr <= Vmax only. */
+                    if(vr_avg_check <= track_debugger.Vmax){
+                        // ===== [修复A-1-重写] 用雷达实测Vr做预筛选 =====
+                        // 关键：用radar_vr（雷达直接测量）而不是位置差分spd来判断
+                        int phys_consistent = 1;
+                        {
+                            float vr0 = track_asso_data[i*3+0].radar_vr;
+                            float vr1 = track_asso_data[i*3+1].radar_vr;
+                            float vr2 = track_asso_data[i*3+2].radar_vr;
+                            float r0  = track_asso_data[i*3+0].radar_r;
+                            float r2  = track_asso_data[i*3+2].radar_r;
+                            float t0  = track_asso_data[i*3+0].mSecond;
+                            float t2  = track_asso_data[i*3+2].mSecond;
+                            float dt_s = (t2 - t0) / 1000.0f;
+
+                            // ① Vr符号一致性检查（3点Vr方向必须一致）
+                            int s0 = (vr0 > 0.0f) ? 1 : (vr0 < 0.0f) ? -1 : 0;
+                            int s1 = (vr1 > 0.0f) ? 1 : (vr1 < 0.0f) ? -1 : 0;
+                            int s2 = (vr2 > 0.0f) ? 1 : (vr2 < 0.0f) ? -1 : 0;
+                            if(s0 != 0 && s1 != 0 && s2 != 0){
+                                if((s0 != s1) || (s1 != s2)){
+                                    phys_consistent = 0;  // Vr方向混乱
+                                }
+                            }
+
+                            // ② Vr量级合理性：真实无人机Vr < 80m/s，炮弹Vr可到几百m/s
+                            float vr_avg_abs = (fabsf(vr0) + fabsf(vr1) + fabsf(vr2)) / 3.0f;
+                            if(vr_avg_abs > 2000.0f){
+                                phys_consistent = 0;  // Vr太大，不可能
+                            }
+
+                            // ③ R/Vr一致性检查：仅对高速目标（vr_avg_abs > 30m/s）严格检查
+                            if(vr_avg_abs > 30.0f && dt_s > 0.01f){
+                                float Vr_from_R = (r2 - r0) / dt_s;
+                                if((vr2 > 1.0f && Vr_from_R < -1.0f) || (vr2 < -1.0f && Vr_from_R > 1.0f)){
+                                    phys_consistent = 0;  // R变化方向与Vr矛盾
+                                }
+                            }
+
+                            /* [BUG12 fix] R>5000 -> R>9000: drone actually reaches 4500m.
+                             * Rejecting all low-vr targets over 5000m kills 3-pt init when
+                             * drone is at 3900m approaching 4500m. 9km covers full round-trip. */
+                            if(r2 > 9000.0f && vr_avg_abs < 30.0f){
+                                phys_consistent = 0;  // 低速目标超远距离(>9km)不真实
+                            }
+                        }
+                        if(phys_consistent){
+                            best_confidence = confidence;
+                            best_idx = i;
+                            found_any = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        /* [BUG19 FIX: ENDLESS WHILE LOOP] Unconditionally print scan result,
+         * then ALWAYS break after ONE scan.  The while-loop was written for
+         * multi-candidates (many 3-point per frame) but we only build 1 per frame
+         * for the drone anyway; a single break avoids any infinite loop risk. */
+        printf("    [DBG new_rel] end_of_scan found_any=%d best_idx=%d cand_left=%d\n",
+               found_any, best_idx, candidates_left);
+        fflush(stdout);
+        if(!found_any) break;
+
+        if(best_idx >= 0 && (*reliable_track_num) < MAX_RELIABLE_TRACKS){
+            int final_ok = 1;
+
+            // ===== [修复A-2-重写] 物理一致性验证：用雷达实测数据！ =====
+            // 关键修复：之前用位置差分计算spd在远距离时完全失真！
+            // 例：Frame38 R=1153m，方位角变化1°→虚拟切向位移20m→spd=143m/s（实际Vr只有11m/s）
+            // 现在改用雷达实测的radar_vr/radar_az/radar_el/radar_r来做判断
+            {
+                float vr0, vr1, vr2;     // 3点雷达实测径向速度（带符号）
+                float r0, r1, r2;         // 3点雷达实测距离
+                float az0, az1, az2;      // 3点雷达实测方位角（度）
+                float el0, el1, el2;      // 3点雷达实测俯仰角（度）
+                float beam0, beam1, beam2;// 3点雷达实测波位号
+                float vr_avg;             // 径向速度平均值
+                float vr_min, vr_max;     // 径向速度极值
+                int drone_like = 1;       // 初步判断：1=无人机，0=炮弹
+                float delta_r;            // 距离变化
+                float az_span, el_span;   // 角度跨度
+                int low_speed_pass = 0;   // 低速目标直接通过标志
+
+                // 提取3点雷达实测数据
+                vr0 = track_asso_data[best_idx*3+0].radar_vr;
+                vr1 = track_asso_data[best_idx*3+1].radar_vr;
+                vr2 = track_asso_data[best_idx*3+2].radar_vr;
+                r0  = track_asso_data[best_idx*3+0].radar_r;
+                r1  = track_asso_data[best_idx*3+1].radar_r;
+                r2  = track_asso_data[best_idx*3+2].radar_r;
+                az0 = track_asso_data[best_idx*3+0].radar_az;
+                az1 = track_asso_data[best_idx*3+1].radar_az;
+                az2 = track_asso_data[best_idx*3+2].radar_az;
+                el0 = track_asso_data[best_idx*3+0].radar_el;
+                el1 = track_asso_data[best_idx*3+1].radar_el;
+                el2 = track_asso_data[best_idx*3+2].radar_el;
+                beam0 = (float)track_asso_data[best_idx*3+0].radar_beamNo;
+                beam1 = (float)track_asso_data[best_idx*3+1].radar_beamNo;
+                beam2 = (float)track_asso_data[best_idx*3+2].radar_beamNo;
+
+                // ===== ① 径向速度一致性检查（最关键！）=====
+                // 真实目标的3点Vr方向应该一致（都正或都负），且量级相当
+                // 杂波组合的Vr可能方向混乱或量级差异巨大
+                {
+                    int sign0 = (vr0 > 0.0f) ? 1 : (vr0 < 0.0f) ? -1 : 0;
+                    int sign1 = (vr1 > 0.0f) ? 1 : (vr1 < 0.0f) ? -1 : 0;
+                    int sign2 = (vr2 > 0.0f) ? 1 : (vr2 < 0.0f) ? -1 : 0;
+
+                    // 如果有Vr=0（可能是未赋值），跳过符号检查
+                    if(sign0 != 0 && sign1 != 0 && sign2 != 0){
+                        // 方向不一致（有正有负）→ 肯定是杂波组合
+                        if((sign0 != sign1) || (sign1 != sign2) || (sign0 != sign2)){
+                            final_ok = 0;  // Vr方向混乱，拒绝
+                        }
+                    }
+
+                    // 计算Vr统计量
+                    vr_min = vr0; if(vr1 < vr_min) vr_min = vr1; if(vr2 < vr_min) vr_min = vr2;
+                    vr_max = vr0; if(vr1 > vr_max) vr_max = vr1; if(vr2 > vr_max) vr_max = vr2;
+                    vr_avg = (fabsf(vr0) + fabsf(vr1) + fabsf(vr2)) / 3.0f;
+
+                    // Vr量级差异检查：真实目标Vr波动不超过5倍
+                    if(vr_max > 0.0f && vr_min < 0.0f){
+                        // 已被符号检查拦截，但保险起见
+                        final_ok = 0;
+                    } else if(fabsf(vr_max) > 0.01f && fabsf(vr_min) > 0.01f){
+                        float vr_ratio = fabsf(vr_max) / (fabsf(vr_min) + FLT_EPSILON);
+                        if(vr_ratio > 5.0f){
+                            final_ok = 0;  // Vr量级差异太大，拒绝
+                        }
+                    }
+                }
+
+                // ===== ② 基于Vr的目标类型判断 =====
+                // 用Vr_avg（雷达实测）而不是位置差分spd来判断！
+                // 分类标准与最终target_type一致：<30=无人机, 30-80=其他, >80=炮弹
+                if(vr_avg > 80.0f){
+                    drone_like = 0;  // 高速→炮弹
+                } else if(vr_avg >= 30.0f){
+                    drone_like = 0;  // 中速→其他类，不按无人机处理
+                } else {
+                    drone_like = 1;  // 低速(<30m/s)→无人机
+                }
+
+                // ===== [关键修复] 低速目标（无人机）直接通过 =====
+                // 如果3点Vr都在1-30m/s范围且符号一致，标记为低速直接通过
+                // 跨波位时R测量值不可靠，跳过所有基于R变化的检查
+                if(vr_avg >= 1.0f && vr_avg <= 30.0f && drone_like){
+                    int all_vr_valid = 1;
+                    if(fabsf(vr0) < 1.0f || fabsf(vr0) > 30.0f) all_vr_valid = 0;
+                    if(fabsf(vr1) < 1.0f || fabsf(vr1) > 30.0f) all_vr_valid = 0;
+                    if(fabsf(vr2) < 1.0f || fabsf(vr2) > 30.0f) all_vr_valid = 0;
+                    if(all_vr_valid){
+                        low_speed_pass = 1;  // 低速目标直接通过标志
+                    }
+                }
+
+                // ===== ③ 距离单调性检查 =====
+                // [修复] 对于低速目标（low_speed_pass=1），跳过此检查
+                if(!low_speed_pass){
+                    int inc = (r1 > r0) && (r2 > r1);      // 递增
+                    int dec = (r1 < r0) && (r2 < r1);      // 递减
+                    int stable = fabsf(r1 - r0) < 5.0f && fabsf(r2 - r1) < 5.0f;  // 稳定
+
+                    if(!inc && !dec && !stable){
+                        // R非单调且不稳定→可疑，但如果是低速无人机（转弯时R可能先增后减），放行
+                        if(drone_like && vr_avg < 15.0f){
+                            // 低速无人机转弯时允许R波动，放行
+                        } else {
+                            final_ok = 0;
+                        }
+                    }
+                }
+                delta_r = r2 - r0;
+
+                // ===== ④ 方位跨度检查（用雷达实测角度！）=====
+                az_span = fabsf(az2 - az0);
+                if(az_span > 180.0f) az_span = 360.0f - az_span;
+                if(az_span > 30.0f){
+                    final_ok = 0;  // 方位跨度太大，跨波束假组合
+                }
+
+                // ===== ⑤ 俯仰跨度检查 =====
+                el_span = fabsf(el2 - el0);
+                if(el_span > 25.0f){
+                    final_ok = 0;  // 俯仰跨度太大
+                }
+
+                // ===== ⑥ 绝对扇区约束 =====
+                // 用雷达实测的az2/el2检查目标是否在合理扇区内
+                // 雷达方位角定义: 正北=0°, 顺时针增加; 17个波束(0-16)覆盖约[-90°, 90°]
+                if(!drone_like || vr_avg < 600.0f){
+                    float az_norm = az2;
+                    while(az_norm > 180.0f)  az_norm -= 360.0f;
+                    while(az_norm < -180.0f) az_norm += 360.0f;
+
+                    // 中低速目标绝对方位约束
+                    // [修复] 扇区范围扩展到[-90°, 90°]以匹配雷达实际覆盖范围
+                    // 无人机在波束2附近时雷达方位角约73°, 原约束[-20°, 60°]会误拒
+                    if(vr_avg < 150.0f){
+                        if(az_norm > 90.0f || az_norm < -90.0f){
+                            final_ok = 0;
+                        }
+                        // 俯仰物理约束
+                        if(el2 < -15.0f || el2 > 75.0f){
+                            final_ok = 0;
+                        }
+                        /* [BUG13 fix] drone R cap 8000m -> 9000m (4500m max + round-trip margin) */
+                        if(r2 > 9000.0f || r0 > 9000.0f){
+                            final_ok = 0;
+                        }
+                    }
+                }
+
+                // ===== ⑦ 波位合理性检查 =====
+                // 真实无人机连续3点应该在相邻波位（波位差≤3）
+                {
+                    float beam_span = fabsf(beam2 - beam0);
+                    if(beam_span > 5.0f){
+                        // 跨太多波位→可能是杂波，但也可能是快速扫描
+                        // 放宽：只在方位跨度也大时才拦截
+                        if(az_span > 15.0f){
+                            final_ok = 0;
+                        }
+                    }
+                }
+
+                // ===== ⑧ 交叉验证：Vr符号与R变化趋势一致性 =====
+                // [修复] 对于低速目标（low_speed_pass=1），跳过此检查
+                if(!low_speed_pass){
+                    float t0 = track_asso_data[best_idx*3+0].mSecond;
+                    float t2 = track_asso_data[best_idx*3+2].mSecond;
+                    float dt_s = (t2 - t0) / 1000.0f;
+                    if(dt_s > 0.01f){
+                        float Vr_from_R = delta_r / dt_s;
+                        float R_ref = (r0 > r2) ? r0 : r2;
+                        // 用相对比例检查：R变化量不超过R本身的20%（远距离绝对误差大）
+                        float rel_delta = abs(delta_r) / (R_ref + 1.0f);
+                        
+                        // 只用符号检查：Vr<0(靠近)时R不应大幅递增
+                        if(vr2 < -2.0f){
+                            // 靠近雷达：R应递减或基本不变
+                            // 允许R小幅波动（< R的10%），但大幅递增（>20%）则可疑
+                            if(delta_r > 0 && rel_delta > 0.20f){
+                                final_ok = 0;  // 靠近却大幅远离
+                            }
+                        } else if(vr2 > 2.0f){
+                            // 远离雷达：R应递增或基本不变
+                            if(delta_r < 0 && rel_delta > 0.20f){
+                                final_ok = 0;  // 远离却大幅靠近
+                            }
+                        }
+                        // 绝对速度检查：如果Vr和R变化率方向完全相反
+                        if((vr2 > 5.0f && Vr_from_R < -10.0f) || (vr2 < -5.0f && Vr_from_R > 10.0f)){
+                            final_ok = 0;
+                        }
+                    }
+                }
+            }
+
+            // ===== 只有final_ok通过时才创建reliable_track =====
+            if(final_ok){
+
+            (*reliable_track_num)++;
+            (*reliable_num_all)++;
+            idx = (*reliable_track_num) - 1;
+
+            memcpy(reliable_track[idx].X0, track_asso_data[best_idx*3+2].X, sizeof(track_asso_data[best_idx*3+2].X));
+            memcpy(reliable_track[idx].P0, track_asso_data[best_idx*3+2].P, sizeof(track_asso_data[best_idx*3+2].P));
+            memcpy(reliable_track[idx].X1, track_asso_data[best_idx*3+2].X, sizeof(track_asso_data[best_idx*3+2].X));
+            memcpy(reliable_track[idx].P1, track_asso_data[best_idx*3+2].P, sizeof(track_asso_data[best_idx*3+2].P));
+
+            vx = track_asso_data[best_idx*3+2].X[1];
+            vy = track_asso_data[best_idx*3+2].X[3];
+            vz = track_asso_data[best_idx*3+2].X[5];
+            spd = sqrtf(vx*vx + vy*vy + vz*vz);
+
+            // ===== 基于3点平均Vr的目标分类 =====
+            // 使用3点径向速度平均值（而非仅第3点），分类更鲁棒
+            {
+                float vr0_abs, vr1_abs, vr2_abs;
+                float vr_avg_3pt, vr_max_abs;
+                vr0_abs = fabsf(track_asso_data[best_idx*3+0].radar_vr);
+                vr1_abs = fabsf(track_asso_data[best_idx*3+1].radar_vr);
+                vr2_abs = fabsf(track_asso_data[best_idx*3+2].radar_vr);
+                vr_avg_3pt = (vr0_abs + vr1_abs + vr2_abs) / 3.0f;
+                /* [FIX type-1] 分类严格化：防单点超速的杂波混入无人机 */
+                vr_max_abs = vr0_abs;
+                if(vr1_abs > vr_max_abs) vr_max_abs = vr1_abs;
+                if(vr2_abs > vr_max_abs) vr_max_abs = vr2_abs;
+
+                if(vr_avg_3pt < 30.0f && vr_max_abs < 30.0f && drone_like){
+                    reliable_track[idx].target_type = 2;   /* 无人机 */
+                    init_hint = 2;
+                } else if(vr_avg_3pt > 80.0f && vr_max_abs > 80.0f && !drone_like){
+                    reliable_track[idx].target_type = 1;   /* 炮弹 */
+                    init_hint = 1;
+                } else if(vr_avg_3pt >= 30.0f && vr_avg_3pt <= 80.0f){
+                    reliable_track[idx].target_type = 0;   /* 其他 */
+                    init_hint = 0;
+                } else {
+                    /* [FIX type-2] 分类矛盾(如avg<30但max>80的Vr乱序杂波)→取消该航迹
+                     * 同时：1) 回滚reliable计数 2) 恢复asso_flag=1 3) 跳过imm_init等写入
+                     */
+                    final_ok = 0;
+                    reliable_track[idx].target_type = 0;
+                    init_hint = 0;
+                }
+            }
+            /* [FIX type-3] final_ok=0时，不进入imm_init及后续init字段赋值，
+             * 直接跳转到reliable_reject_rollback标签做回滚 */
+            if(!final_ok){
+                (*reliable_track_num)--;
+                (*reliable_num_all)--;
+                {
+                    int ri = (*reliable_track_num);
+                    if(ri < 0) ri = 0;
+                    memset(&reliable_track[ri], 0, sizeof(reliable_track[ri]));
+                }
+                track_asso_data[best_idx*3+0].asso_flag = 1;
+                track_asso_data[best_idx*3+1].asso_flag = 1;
+                track_asso_data[best_idx*3+2].asso_flag = 1;
+                goto reliable_reject_rollback;
+            }
+
+            imm_init(&reliable_track[idx].imm, track_asso_data[best_idx*3+2].X,
+                     (const float (*)[6])track_asso_data[best_idx*3+2].P, init_hint);
+
+            // ===== [关键修复2] target_type永久锁死标志 =====
+            // 一旦确定target_type=2（无人机），任何代码路径都不允许改成0或1！
+            // 这是防止后续IMM模型切换或误关联把无人机改成炮弹的最底层防线
+            // （target_type字段本身是int，没有写保护，所以需要在所有写入路径上加固检查——见track_asso.c）
+
+            reliable_track[idx].Year      = track_asso_data[best_idx*3+2].Year;
+            reliable_track[idx].Month     = track_asso_data[best_idx*3+2].Month;
+            reliable_track[idx].Day       = track_asso_data[best_idx*3+2].Day;
+            reliable_track[idx].Hour      = track_asso_data[best_idx*3+2].Hour;
+            reliable_track[idx].Minute    = track_asso_data[best_idx*3+2].Minute;
+            reliable_track[idx].Second    = track_asso_data[best_idx*3+2].Second;
+            reliable_track[idx].mSecond   = track_asso_data[best_idx*3+2].mSecond;
+            reliable_track[idx].tgtnum    = track_asso_data[best_idx*3+2].tgtnum;
+            reliable_track[idx].num_P     = (*reliable_num_all);
+
+            reliable_track[idx].track_update_flag = 1;
+            reliable_track[idx].predict_flag = 0;
+            reliable_track[idx].rapid_fail_count = 0;
+
+            // 初始化参考角度/距离（用于coast模式时防止漂移到错误方向）
+            // [关键修复] init_az必须与track.c输出公式一致：π/2 - atan2(y, x)
+            // 之前用atan2(y, x)会导致init_az偏90°，例如17°→73°
+            // 直接使用radar_az（雷达实测方位角）最可靠
+            {
+                float ix = track_asso_data[best_idx*3+2].X[0];
+                float iy = track_asso_data[best_idx*3+2].X[2];
+                float iz = track_asso_data[best_idx*3+2].X[4];
+                float irho = sqrtf(ix*ix + iy*iy);
+                reliable_track[idx].init_r = sqrtf(ix*ix + iy*iy + iz*iz);
+                reliable_track[idx].init_az = track_asso_data[best_idx*3+2].radar_az;  // 直接用雷达实测方位角
+                reliable_track[idx].init_el = track_asso_data[best_idx*3+2].radar_el;   // 直接用雷达实测俯仰角
+                reliable_track[idx].init_beamNo = 0xFFFFFFFFu;  // 未定义，首次关联成功时再记录
+                reliable_track[idx].last_update_az = reliable_track[idx].init_az;
+                reliable_track[idx].last_update_el = reliable_track[idx].init_el;
+                reliable_track[idx].last_update_r = reliable_track[idx].init_r;
+                reliable_track[idx].last_update_t = (uint32_t)(reliable_track[idx].mSecond);
+            }
+
+            // 只有当final_ok通过时才清零asso_flag并减少候选计数
+            if(final_ok){
+                track_asso_data[best_idx*3+0].asso_flag = 0;
+                track_asso_data[best_idx*3+1].asso_flag = 0;
+                track_asso_data[best_idx*3+2].asso_flag = 0;
+
+                // 标记该候选已处理
+                candidates_left--;
+            }
+reliable_reject_rollback:
+            ;
+        } // end if(best_idx>=0 block). final_ok=0的rollback路径由goto reliable_reject_rollback直接到此
+
+        // 在外层循环外：处理未成功关联的候选，将其放回 temp_track
+        if(candidates_left <= 0 || (*reliable_track_num) >= MAX_RELIABLE_TRACKS){
+            break;  // 跳出外层循环
+        }
+        } // end while(candidates_left > 0)
+    } /* END while(candidates_left > 0 && reliable < MAX) — BUG21 FIX MOVED HERE. Original while-close at old L612 used to swallow the whole writeback block (800 frames proved: if(!found_any) break; on count==1 frames skipped wrote_back 100%, so temp_before=0 every frame, 3-point init never happened). */
+    printf("    [DBG new_rel] after_while k_begin=%d num_cand=%d\n", k, num_candidates);
+    fflush(stdout);
+
+
+    /* [BUG20 FIX: asso_flag GATE BROKEN -> unconditional writeback of ALL candidates]
+     * Use explicit memcpy to avoid C6x strict-aliasing UB on [num_temp][3] 2D-array
+     * indexed as flat [i*3+j] (BUG17 pointer-aliasing trap). */
+    printf("    [DBG new_rel] writeback_start num_cand=%d temp_before=%d\n", num_candidates, (*temp_track_num));
+    fflush(stdout);
+    for(i = 0; i < num_candidates; i++){
+        /* gate: candidate is valid only if slot[0] was written (beamNo != 0xFFFFFFFF) */
+        if(track_asso_data[i*3+0].radar_beamNo == 0xFFFFFFFFu) continue;
+        if(track_asso_data[i*3+0].asso_flag == 0 &&
+           track_asso_data[i*3+1].asso_flag == 0 &&
+           track_asso_data[i*3+2].asso_flag == 0) continue;   /* already-processed skip */
+        if((*temp_track_num + k) >= num_temp-1) break;         /* capacity */
+        {
+            int dst = ((*temp_track_num) + k) * 3;
+            int src = i * 3;
+            memcpy(&temp_track[dst+0], &track_asso_data[src+0], sizeof(temp_track[0]));
+            memcpy(&temp_track[dst+1], &track_asso_data[src+1], sizeof(temp_track[0]));
+            memcpy(&temp_track[dst+2], &track_asso_data[src+2], sizeof(temp_track[0]));
+            /* count restore: use asso_flags already in place; otherwise ensure 1-pt inits have 0th =1 */
+            if(temp_track[dst+0].asso_flag != 1 &&
+               temp_track[dst+1].asso_flag != 1 &&
+               temp_track[dst+2].asso_flag != 1){
+                temp_track[dst+0].asso_flag = 1;
+                temp_track[dst+1].asso_flag = 0;
+                temp_track[dst+2].asso_flag = 0;
+            }
+        }
+        printf("    [DBG new_rel] copy cand[%d] az=%.2f el=%.2f r=%.1f bn=%u -> slot[%d]\n",
+               i,
+               track_asso_data[i*3+0].radar_az,
+               track_asso_data[i*3+0].radar_el,
+               track_asso_data[i*3+0].radar_r,
+               (unsigned)track_asso_data[i*3+0].radar_beamNo,
+               (*temp_track_num)+k);
+        fflush(stdout);
+        k++;
+        /* consume: clear asso_flags so skipped next time */
+        track_asso_data[i*3+0].asso_flag = 0;
+        track_asso_data[i*3+1].asso_flag = 0;
+        track_asso_data[i*3+2].asso_flag = 0;
+ 

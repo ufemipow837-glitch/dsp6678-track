@@ -11,7 +11,7 @@
 #include <DSPF_sp_lud_inv/c66/DSPF_sp_lud_inv.h>
 
 #pragma pack(4)
-#define MAX_MISSING_FRAMES_SEARCH 35
+#define MAX_MISSING_FRAMES_SEARCH 160  // 增加容错帧数(覆盖多圈扫描周期)
 
 static void convert_to_sph_and_check_boundary(struct reliable *rp, float *azi_out, float *ele_out, float *range_out, int *die)
 {
@@ -86,12 +86,13 @@ void track_die(struct reliable (*reliable_point),
 
 		for(i = 0; i < (*reliable_track_num); i++)
 		{
-			convert_to_sph_and_check_boundary(&reliable_point[i], &azi, &ele, &range_val, &die);
+                        convert_to_sph_and_check_boundary(&reliable_point[i], &azi, &ele, &range_val, &die);
+                        die_by_predict = (reliable_point[i].predict_flag > MAX_MISSING_FRAMES_SEARCH);
 
-			if(die){
-				record_track_end(&reliable_point[i], &track_end[k1], azi, ele, range_val);
-				k1++;
-			} else {
+                        if(die || die_by_predict){
+                                record_track_end(&reliable_point[i], &track_end[k1], azi, ele, range_val);
+                                k1++;
+                        } else {
 				if(write_idx != i){
 					reliable_point[write_idx] = reliable_point[i];
 				}

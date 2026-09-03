@@ -22,12 +22,21 @@ static const float imm_pi[IMM_N][IMM_N] = {
     {0.05f, 0.25f, 0.70f}
 };
 
-static float imm_sigma_cv       = 5.0f;
-static float imm_sigma_maneuver = 30.0f;
+/* General-purpose sigma for non-drone targets */
+static float imm_sigma_cv         = 2.0f;    /* was 5.0f */
+static float imm_sigma_maneuver   = 8.0f;    /* was 30.0f */
+
+/* Drone: low speed, tiny acceleration */
+static float imm_sigma_drone_cv   = 1.5f;
+static float imm_sigma_drone_man  = 6.0f;
 
 static float imm_mu_init_default[IMM_N] = {0.30f, 0.50f, 0.20f};
 static float imm_mu_init_shell[IMM_N]   = {0.70f, 0.20f, 0.10f};
 static float imm_mu_init_drone[IMM_N]   = {0.10f, 0.70f, 0.20f};
+
+/* Drone speed safety limits */
+#define DRONE_V_MAX   20.0f
+#define DRONE_DV_MAX   3.0f
 
 static float H_cv_local[IMM_OBS_DIM][IMM_DIM];
 static float HT_cv_local[IMM_DIM][IMM_OBS_DIM];
@@ -229,14 +238,69 @@ static float imm_kf_update(float *X_pred, float (*P_pred)[IMM_DIM],
     return Lambda;
 }
 
+/* clamp speed |v| <= DRONE_V_MAX for drone targets */
+static void imm_clamp_drone_speed(float *X_state)
+{
+    float spd, ratio;
+    int i;
+    spd = sqrtf(X_state[1]*X_state[1] + X_state[3]*X_state[3] + X_state[5]*X_state[5]);
+    if(spd > DRONE_V_MAX){
+        ratio = DRONE_V_MAX / spd;
+        X_state[1] *= ratio;
+        X_state[3] *= ratio;
+        X_state[5] *= ratio;
+    }
+    for(i = 1; i < IMM_STATE_DIM; i += 2){
+        if(X_state[i] > DRONE_V_MAX)       X_state[i] = DRONE_V_MAX;
+        if(X_state[i] < -DRONE_V_MAX)      X_state[i] = -DRONE_V_MAX;
+    }
+}
+
+static void imm_normalize_mu(float mu[IMM_N])
+{
+    int m;
+    float s = 0.0f;
+    for(m = 0; m < IMM_N; m++){
+        if(mu[m] < 0.001f) mu[m] = 0.001f;
+        s += mu[m];
+    }
+    if(s < 1e-9f) s = 1e-9f;
+    for(m = 0; m < IMM_N; m++) mu[m] /= s;
+}
+
 void imm_init(IMM_STATE *imm, const float *X0, const float (*P0)[IMM_STATE_DIM], int init_model_hint)
 {
     int i, j, m;
     const float *mu_init;
 
-    if(init_model_hint == 1) mu_init = imm_mu_init_shell;
-    else if(init_model_hint == 2) mu_init = imm_mu_init_drone;
-    else mu_init = imm_mu_init_default;
+    if(init_model_hint == 1){
+        mu_init = imm_mu_init_shell;
+        imm->is_drone = 0;
+    } else if(init_model_hint == 2){
+        mu_init = imm_mu_init_drone;
+        imm->is_drone = 1;
+    } else {
+        mu_init = imm_mu_init_default;
+        imm->is_drone = 0;
+    }
+
+    /* FINAL R-BASED VETO: any initialised state with R < 2500m
+       cannot possibly be a shell/ballistic target.  Override both
+       is_drone and the model probabilities so imm_miss / imm_predict
+       use drone dynamics (CV-dominant, low sigma). */
+    {
+        float init_R = sqrtf(X0[0]*X0[0] + X0[2]*X0[2] + X0[4]*X0[4]);
+        if(init_R < 2500.0f){
+            imm->is_drone = 1;
+            imm->dominant_model = MD_CV;
+            imm->mu[MD_BALLISTIC]   = 0.001f;
+            imm->mu[MD_CV]          = 0.85f;
+            imm->mu[MD_MANEUVER]    = 0.149f;
+            imm->mu_pred[MD_BALLISTIC] = 0.001f;
+            imm->mu_pred[MD_CV]        = 0.85f;
+            imm->mu_pred[MD_MANEUVER]  = 0.149f;
+        }
+    }
 
     for(m = 0; m < IMM_N; m++){
         for(i = 0; i < IMM_STATE_DIM; i++){
@@ -252,6 +316,24 @@ void imm_init(IMM_STATE *imm, const float *X0, const float (*P0)[IMM_STATE_DIM],
     }
     imm->prob_updated = 1.0f;
     imm->dominant_model = (init_model_hint == 1) ? MD_BALLISTIC : MD_CV;
+
+    /* FINAL R-BASED VETO (AFTER the above assignment so it wins):
+       any state with R < 2500m cannot possibly be a shell/ballistic
+       target.  Override is_drone + mu + dominant_model so imm_miss /
+       imm_predict use drone dynamics (CV-dominant, low sigma). */
+    {
+        float init_R = sqrtf(X0[0]*X0[0] + X0[2]*X0[2] + X0[4]*X0[4]);
+        if(init_R < 2500.0f){
+            imm->is_drone = 1;
+            imm->dominant_model = MD_CV;
+            imm->mu[MD_BALLISTIC]      = 0.001f;
+            imm->mu[MD_CV]             = 0.85f;
+            imm->mu[MD_MANEUVER]       = 0.149f;
+            imm->mu_pred[MD_BALLISTIC] = 0.001f;
+            imm->mu_pred[MD_CV]        = 0.85f;
+            imm->mu_pred[MD_MANEUVER]  = 0.149f;
+        }
+    }
 }
 
 void imm_predict(IMM_STATE *imm, float T, float *X_pred, float (*P_pred)[IMM_STATE_DIM])
@@ -265,6 +347,7 @@ void imm_predict(IMM_STATE *imm, float T, float *X_pred, float (*P_pred)[IMM_STA
     float Xm_pred[IMM_N][IMM_STATE_DIM];
     float Pm_pred[IMM_N][IMM_STATE_DIM][IMM_STATE_DIM];
     int i, j, k, m;
+    float sigma_cv_use, sigma_man_use;
 
     for(j = 0; j < IMM_N; j++){
         c_j[j] = 0.0f;
@@ -313,13 +396,26 @@ void imm_predict(IMM_STATE *imm, float T, float *X_pred, float (*P_pred)[IMM_STA
         }
     }
 
+    if(imm->is_drone){
+        sigma_cv_use = imm_sigma_drone_cv;
+        sigma_man_use = imm_sigma_drone_man;
+    } else {
+        sigma_cv_use = imm_sigma_cv;
+        sigma_man_use = imm_sigma_maneuver;
+    }
+
     for(m = 0; m < IMM_N; m++){
         if(m == MD_BALLISTIC){
             ballistic_predict_state(X0j[m], (float*)P0j[m], T, Xm_pred[m], (float*)Pm_pred[m]);
+            if(imm->is_drone) imm_clamp_drone_speed(Xm_pred[m]);
         } else if(m == MD_CV){
-            imm_cv_predict(X0j[m], (const float (*)[IMM_DIM])P0j[m], T, imm_sigma_cv, Xm_pred[m], Pm_pred[m]);
+            imm_cv_predict(X0j[m], (const float (*)[IMM_DIM])P0j[m], T,
+                           sigma_cv_use, Xm_pred[m], Pm_pred[m]);
+            if(imm->is_drone) imm_clamp_drone_speed(Xm_pred[m]);
         } else {
-            imm_cv_predict(X0j[m], (const float (*)[IMM_DIM])P0j[m], T, imm_sigma_maneuver, Xm_pred[m], Pm_pred[m]);
+            imm_cv_predict(X0j[m], (const float (*)[IMM_DIM])P0j[m], T,
+                           sigma_man_use, Xm_pred[m], Pm_pred[m]);
+            if(imm->is_drone) imm_clamp_drone_speed(Xm_pred[m]);
         }
     }
 
@@ -356,6 +452,7 @@ void imm_predict(IMM_STATE *imm, float T, float *X_pred, float (*P_pred)[IMM_STA
                 }
             }
         }
+        if(imm->is_drone) imm_clamp_drone_speed(X_pred);
     }
 
     imm->prob_updated = 0.0f;
@@ -453,6 +550,11 @@ void imm_update(IMM_STATE *imm, float T, const float *Z, const float *R_mat)
         mu_new[m] = Lambda[m] * c_j_pred[m] / Lambda_sum;
         if(mu_new[m] < 0.001f) mu_new[m] = 0.001f;
     }
+
+    if(imm->is_drone){
+        mu_new[MD_BALLISTIC] = 0.001f;
+    }
+
     mu_sum = 0.0f;
     for(m = 0; m < IMM_N; m++) mu_sum += mu_new[m];
     for(m = 0; m < IMM_N; m++) mu_new[m] /= mu_sum;
@@ -467,6 +569,7 @@ void imm_update(IMM_STATE *imm, float T, const float *Z, const float *R_mat)
             }
         }
         imm->mu[m] = mu_new[m];
+        if(imm->is_drone) imm_clamp_drone_speed(imm->X[m]);
     }
 
     best = 0;
@@ -481,6 +584,7 @@ void imm_update(IMM_STATE *imm, float T, const float *Z, const float *R_mat)
     imm->prob_updated = 1.0f;
 }
 
+/* --- IMM_MISS WITH DRONE SAFETY --- */
 void imm_miss(IMM_STATE *imm, float T)
 {
     float X_pred[IMM_STATE_DIM];
@@ -490,9 +594,20 @@ void imm_miss(IMM_STATE *imm, float T)
     float bm;
 
     imm_predict(imm, T, X_pred, P_pred);
+
     for(m = 0; m < IMM_N; m++){
         imm->mu[m] = imm->mu_pred[m];
     }
+
+    /* DRONE-SPECIFIC: kill ballistic, suppress maneuver each miss step */
+    if(imm->is_drone){
+        imm->mu[MD_BALLISTIC] = 0.001f;
+        imm->mu[MD_MANEUVER] *= 0.70f;
+        imm->mu[MD_CV]       += 0.30f;
+        imm_normalize_mu(imm->mu);
+        for(m = 0; m < IMM_N; m++) imm_clamp_drone_speed(imm->X[m]);
+    }
+
     s = 0.0f;
     for(m = 0; m < IMM_N; m++) s += imm->mu[m];
     for(m = 0; m < IMM_N; m++) imm->mu[m] /= s;
@@ -541,6 +656,9 @@ void imm_get_fused_state(const IMM_STATE *imm, float *X_out, float (*P_out)[IMM_
                 P_out[i][j] += mu_w[m] * (imm->P[m][i][j] + dX[i]*dX[j]);
             }
         }
+    }
+    if(imm->is_drone){
+        imm_clamp_drone_speed(X_out);
     }
 }
 
