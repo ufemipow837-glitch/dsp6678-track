@@ -187,11 +187,13 @@ void track_asso(struct target_track (*target_data),
             imm_predict(&imm_tmp, o, Xp, Pp);
             d = imm_d_cal(&imm_tmp, o, Z_obse, (const float*)R_mat);
 
-            /* Beam check for drone tracks:
-               - predict_flag > 10 (many consecutive misses): HARD reject non-adjacent beams
-               - predict_flag <= 10: soft penalty d *= 1.5
-               Rationale: drone missing for 10+ frames is radar beam cycling, not drone lost.
-               Strict beam gating prevents clutter lock during multi-beam scan gaps. */
+            /* Beam check for drone tracks (REVERSED logic):
+               - predict_flag == 0 (正常运行): HARD reject beam差>1
+                 效果: beam≠init_beam附近的clutter全部被拒, 强制predict_flag涨
+               - predict_flag > 0 (连续丢帧): d *= (1 + 0.05 * predict_flag)
+                 效果: 丢了N帧后放宽N*5%, 让远距离/邻近beam的无人机能进来
+               原理: 正常运行时严格卡clutter → predict_flag涨 → 逐步放宽 →
+                     真实无人机(beam差可能>1)能通过 → predict_flag归0 → 又严格 */
             if(reliable_track[loop_of_track].imm.is_drone){
                 uint32_t cur_bn = target_data[loop_of_dot].beamNo;
                 uint32_t init_bn = reliable_track[loop_of_track].init_beamNo;
@@ -199,12 +201,33 @@ void track_asso(struct target_track (*target_data),
                     int bd = (int)cur_bn - (int)init_bn;
                     if(bd < 0) bd = -bd;
                     if(bd > 1){
-                        if(reliable_track[loop_of_track].predict_flag > 10){
-                            continue;  /* HARD reject: too many misses, reject clutter */
+                        int miss = reliable_track[loop_of_track].predict_flag;
+                        if(miss <= 0){
+                            continue;  /* HARD reject: 正常运行只认相邻beam */
                         } else {
-                            d *= 1.5f; /* Soft penalty during normal operation */
+                            float relax = 1.0f + 0.05f * (float)miss;
+                            if(relax > 3.0f) relax = 3.0f;  /* 上限3.0x防乱关联 */
+                            d *= relax;
                         }
                     }
+                }
+            }
+
+            /* 3D Range 一致性检查 (drone only):
+               始终启用! 用 drone_clean_range (只在 imm_update 成功时更新, 永不被 imm_miss 覆盖).
+               门限 = 200m + 30m * predict_flag, 上限 3000m.
+               predict_flag=0 时: 200m 足以挡 clutter(差193m) 和其他无人机(差>1000m)
+               predict_flag=17 时: 200+510=710m, 无人机 miss 17帧最多漂33m, 仍能挡住其他无人机 */
+            if(reliable_track[loop_of_track].imm.is_drone){
+                float range_last = reliable_track[loop_of_track].drone_clean_range;
+                float range_obs  = target_data[loop_of_dot].range;
+                float r_err = range_obs - range_last;
+                if(r_err < 0.0f) r_err = -r_err;
+                int miss = reliable_track[loop_of_track].predict_flag;
+                float r_gate = 200.0f + 30.0f * (float)miss;
+                if(r_gate > 3000.0f) r_gate = 3000.0f;
+                if(r_err > r_gate){
+                    continue;  /* range 偏差过大, reject */
                 }
             }
 
@@ -310,6 +333,7 @@ void track_asso(struct target_track (*target_data),
             memcpy(reliable_track[loop_of_track].P0, P_pred_fused, sizeof(P_pred_fused));
             memcpy(reliable_track[loop_of_track].X1, X_fused, sizeof(X_fused));
             memcpy(reliable_track[loop_of_track].P1, P_fused, sizeof(P_fused));
+            reliable_track[loop_of_track].drone_clean_range = target_data[best_dot_idx].range;
 
             reliable_track[loop_of_track].track_update_flag = 1;
             reliable_track[loop_of_track].predict_flag = 0;

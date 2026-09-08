@@ -42,6 +42,8 @@ struct debugger_track{
 	//float filter_range_low[5];   // 每组过滤的起始距离
 	//float filter_range_high[5];  // 每组过滤的结束距离
 	//int   filter_range_num;      // 过滤组数
+
+	float tas_switch_range;       // TWS→TAS切换距离门槛(m)，上位机可设，默认2500m
 };
 
 struct TARGETPIONT
@@ -453,6 +455,9 @@ typedef struct reliable
     int		track_update_flag;		//1表示已经过滤波测量更新
     int     num_P;//航迹批号，-1表示消亡
 //    int     f;
+
+	int tas_latched;    // TAS滞回锁: 0=未切TAS, 1=已切TAS且保持
+    float drone_clean_range;  // 无人机最后一次成功关联的 range, 永不被 imm_miss 覆盖
 
 }RELIABLE_TRACK;
 

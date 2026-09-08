@@ -22,6 +22,7 @@
 #define MAX_PREDICT_WITHOUT_UPDATE 5
 #define TAS_CONFIDENCE_THRESHOLD 0.85f
 #define MAX_SIMULTANEOUS_TRACKS 5
+#define DEFAULT_TAS_SWITCH_RANGE 2500.0f   // TAS默认切换距离2500m
 
 typedef enum {
     TRACK_STATE_SEARCHING = 0,
@@ -55,25 +56,69 @@ float evaluate_track_confidence(struct reliable *track) {
     return confidence;
 }
 
-int should_switch_to_tas(struct reliable *track) {
+int should_switch_to_tas(struct reliable *track, float tas_switch_range) {
     static int update_count[num_reliable] = {0};
     float confidence;
+    float X, Vx, Y, Vy, Z, Vz;
+    float range, Vr;
+    float effective_range;
 
-    if(track->track_update_flag == 1){
-        update_count[track->num_P - 1]++;
-    } else {
-        update_count[track->num_P - 1] = 0;
-    }
-
-    confidence = evaluate_track_confidence(track);
-
-    if(update_count[track->num_P - 1] >= TAS_SWITCH_THRESHOLD &&
-       confidence >= TAS_CONFIDENCE_THRESHOLD &&
-       track->predict_flag == 0){
+    /* ========== 1. 滞回锁已置位 → 直接保持TAS ========== */
+    if(track->tas_latched) {
+        /* 回退条件：远离目标且距离 > 2倍门槛才解锁 */
+        X  = track->X1[0];  Vx = track->X1[1];
+        Y  = track->X1[2];  Vy = track->X1[3];
+        Z  = track->X1[4];  Vz = track->X1[5];
+        range = sqrtf(X*X + Y*Y + Z*Z);
+        if(range > 1.0f) {
+            Vr = (X*Vx + Y*Vy + Z*Vz) / range;
+            if(range > tas_switch_range * 2.0f && Vr < 0.0f) {
+                track->tas_latched = 0;
+                return 0;
+            }
+        }
         return 1;
     }
 
-    return 0;
+    /* ========== 2. 丢帧则不切 ========== */
+    if(track->track_update_flag == 0){
+        update_count[track->num_P - 1] = 0;
+        return 0;
+    }
+    update_count[track->num_P - 1]++;
+
+    /* ========== 3. 基础门限 ========== */
+    confidence = evaluate_track_confidence(track);
+    if(update_count[track->num_P - 1] < TAS_SWITCH_THRESHOLD ||
+       confidence < TAS_CONFIDENCE_THRESHOLD ||
+       track->predict_flag != 0){
+        return 0;
+    }
+
+    /* ========== 4. 计算径向速度判断靠近/远离 ========== */
+    X  = track->X1[0];  Vx = track->X1[1];
+    Y  = track->X1[2];  Vy = track->X1[3];
+    Z  = track->X1[4];  Vz = track->X1[5];
+    range = sqrtf(X*X + Y*Y + Z*Z);
+    if(range < 1.0f) return 0;
+
+    Vr = (X*Vx + Y*Vy + Z*Vz) / range;  /* 靠近为正，远离为负 */
+    effective_range = (tas_switch_range > 0.0f) ? tas_switch_range : DEFAULT_TAS_SWITCH_RANGE;
+
+    /* ========== 5. 方向+距离联合决策 ========== */
+    if(Vr < 0.0f) {
+        /* 远离目标：无距离门槛，有可靠航迹就转TAS */
+        track->tas_latched = 1;
+        return 1;
+    } else {
+        /* 靠近目标：需进入切换距离门槛内才转TAS */
+        if(range <= effective_range) {
+            track->tas_latched = 1;
+            return 1;
+        }
+        /* 靠近但还在门槛外 → 继续TWS跟踪，不切 */
+        return 0;
+    }
 }
 
 
@@ -415,7 +460,7 @@ void track(
 		for (i = 0; i < (*reliable_track_num); i++) {
 			tas_data_pre[i] = reliable_track[i];
 
-			if(should_switch_to_tas(&reliable_track[i])){
+			if(should_switch_to_tas(&reliable_track[i], (*track_debugger).tas_switch_range)){
 				tas_switch_flag[i] = 1;
 			}
 			

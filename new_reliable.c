@@ -218,6 +218,9 @@ void new_reliable(struct reliable (*reliable_track),
 
             reliable_track[idx].track_update_flag = 1;
             reliable_track[idx].predict_flag = 0;
+            reliable_track[idx].tas_latched = 0;
+            { float *Xt = track_asso_data[best_idx*3+2].X;
+              reliable_track[idx].drone_clean_range = sqrtf(Xt[0]*Xt[0] + Xt[2]*Xt[2] + Xt[4]*Xt[4]); }
 
             track_asso_data[best_idx*3+0].asso_flag = 0;
             track_asso_data[best_idx*3+1].asso_flag = 0;
