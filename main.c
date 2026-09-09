@@ -32,7 +32,7 @@
 
 #define TOTAL_FRAMES 1300
 
-//1. �件�时打点相关寄存�/变量定义
+//1. �件�时打点相关寄存�/变量定义
 
 extern void CSL_tscEnable(void);
 
@@ -62,7 +62,7 @@ uint32_t utilReadTime32()
 
 
 
-// 全局变量已统�定义� global_variable.c，��无�重�定�
+// 全局变量已统�定义� global_variable.c，��无�重�定�
 
 
 
@@ -120,7 +120,7 @@ int main(void)
 
 
 
-    // Cache配置已在data_process_func.c的DataProcess2DspFunc�统�处理
+    // Cache配置已在data_process_func.c的DataProcess2DspFunc�统�处理
 
     printf("\n");
 
@@ -132,7 +132,7 @@ int main(void)
 
   // --------------------------------------------------------------------
 
-    // 无人机实测数�参数配�
+    // 无人机实测数�参数配�
 
     track_debugger.beam_time   = 0.164f;   // �位间�164ms
 
@@ -150,7 +150,7 @@ int main(void)
 
     track_debugger.time_down   = 0.0f;
 
-    track_debugger.time_up     = 12000.0f; // 时间窗口12s(容忍4.3圈扫�, 覆盖长间�)
+    track_debugger.time_up     = 12000.0f; // 时间窗口12s(容忍4.3圈扫�, 覆盖长间�)
 
 
     track_debugger.wx          = 0.0f;
@@ -159,13 +159,13 @@ int main(void)
 
     track_debugger.wz          = 0.0f;
 
-    track_debugger.Vmin        = 2.0f;     // �小�度5m/s(覆盖低�无人�)
+    track_debugger.Vmin        = 2.0f;     // �小�度5m/s(覆盖低�无人�)
 
     track_debugger.Vmax        = 20.0f;
 
 
 
-    track_debugger.azi_down    = -90.0f * pi / 180.0f;  // 方位门限±90°(测试�,根据实际阵面安�调�)
+    track_debugger.azi_down    = -90.0f * pi / 180.0f;  // 方位门限±90°(测试�,根据实际阵面安�调�)
 
     track_debugger.azi_up      =  90.0f * pi / 180.0f;
 
@@ -175,7 +175,7 @@ int main(void)
 
     track_debugger.range_down  = 100.0f;
 
-    track_debugger.range_up    = 5000.0f;  // 距���50km
+    track_debugger.range_up    = 5000.0f;  // 距���50km
 
 
 
@@ -187,7 +187,7 @@ int main(void)
 
     // 实例化封装函数��的标准出入口结构体
 
-       // 更改后：分配在全�静�存储区，彻底免�栈��
+       // 更改后：分配在全�静�存储区，彻底免�栈��
 
     static TARGET_500_PACK  test_input_pack;
 
@@ -253,15 +253,13 @@ int main(void)
 
             for(k = 0; k < test_track_output.reliable_track_num && k < 5; k++){
 
-                printf("  -> Track[%d]: Az=%.2fdeg El=%.2fdeg R=%.1fm V=%.1fm/s\n",
-
+                uint32_t tt = test_track_output.tracks[k].traceType;
+                printf("  -> Track[%d]: Az=%.2fdeg El=%.2fdeg R=%.1fm V=%.1fm/s [%s tt=%u]\n",
                        k, test_track_output.tracks[k].azi,
-
                        test_track_output.tracks[k].ele,
-
                        test_track_output.tracks[k].range,
-
-                       test_track_output.tracks[k].Vel);
+                       test_track_output.tracks[k].Vel,
+                       tt ? "TAS" : "TWS", tt);
 
             }
 

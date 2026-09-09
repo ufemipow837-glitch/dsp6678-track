@@ -297,7 +297,7 @@ struct TARGETTRACE_RENEW
 {
 	uint32_t num;
 	uint32_t tgtnum;         	//目标号
-	uint32_t traceType;
+	uint32_t traceType;         //0-TWS 1-TAS
 	uint32_t batchNum;
 	uint32_t  Year;
 	uint32_t  Month;

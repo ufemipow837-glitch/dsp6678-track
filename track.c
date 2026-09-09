@@ -18,7 +18,8 @@
 
 #pragma pack(4)
 
-#define TAS_SWITCH_THRESHOLD 6
+#define TAS_WINDOW_FRAMES      17   /* TWS 一圈扫描约 17 帧 */
+#define TAS_WINDOW_THRESHOLD   3    /* 窗口内累计 3 次 update 即认为航迹稳定 */
 #define MAX_PREDICT_WITHOUT_UPDATE 5
 #define TAS_CONFIDENCE_THRESHOLD 0.85f
 #define MAX_SIMULTANEOUS_TRACKS 5
@@ -56,67 +57,85 @@ float evaluate_track_confidence(struct reliable *track) {
     return confidence;
 }
 
+static struct target_track target_data_3[cpi_num];  /* 暂定定义, 完整初始化在 L246 */
+
 int should_switch_to_tas(struct reliable *track, float tas_switch_range) {
-    static int update_count[num_reliable] = {0};
+    static int upd_in_window[num_reliable] = {0};
+    static int last_update_framesn[num_reliable] = {-1};
     float confidence;
     float X, Vx, Y, Vy, Z, Vz;
     float range, Vr;
     float effective_range;
+    int idx = track->num_P - 1;
+    int cur_framesn = target_data_3[0].frameSn;
 
     /* ========== 1. 滞回锁已置位 → 直接保持TAS ========== */
     if(track->tas_latched) {
-        /* 回退条件：远离目标且距离 > 2倍门槛才解锁 */
+        /* 回退条件：目标重新远离(Vr>0) 且 距离 > 2倍门槛才解锁 */
         X  = track->X1[0];  Vx = track->X1[1];
         Y  = track->X1[2];  Vy = track->X1[3];
         Z  = track->X1[4];  Vz = track->X1[5];
         range = sqrtf(X*X + Y*Y + Z*Z);
         if(range > 1.0f) {
             Vr = (X*Vx + Y*Vy + Z*Vz) / range;
-            if(range > tas_switch_range * 2.0f && Vr < 0.0f) {
+            if(range > tas_switch_range * 2.0f && Vr > 0.0f) {
                 track->tas_latched = 0;
+                upd_in_window[idx] = 0;
+                last_update_framesn[idx] = -1;
                 return 0;
             }
         }
         return 1;
     }
 
-    /* ========== 2. 丢帧则不切 ========== */
-    if(track->track_update_flag == 0){
-        update_count[track->num_P - 1] = 0;
+    /* ========== 2. 滑窗累计 update 次数 ========== */
+    if(track->track_update_flag == 1) {
+        if(cur_framesn - last_update_framesn[idx] > TAS_WINDOW_FRAMES) {
+            upd_in_window[idx] = 1;
+        } else {
+            upd_in_window[idx]++;
+        }
+        last_update_framesn[idx] = cur_framesn;
+    }
+
+    /* ========== 3. 窗口门限 ========== */
+    if(upd_in_window[idx] < TAS_WINDOW_THRESHOLD){
+        printf("[TAS-DENY] upd_in_window=%d < %d\n", upd_in_window[idx], TAS_WINDOW_THRESHOLD);
         return 0;
     }
-    update_count[track->num_P - 1]++;
 
-    /* ========== 3. 基础门限 ========== */
+    /* ========== 4. 置信度门限 ========== */
     confidence = evaluate_track_confidence(track);
-    if(update_count[track->num_P - 1] < TAS_SWITCH_THRESHOLD ||
-       confidence < TAS_CONFIDENCE_THRESHOLD ||
-       track->predict_flag != 0){
+    if(confidence < TAS_CONFIDENCE_THRESHOLD){
+        printf("[TAS-DENY] confidence=%.3f < 0.85\n", confidence);
         return 0;
     }
 
-    /* ========== 4. 计算径向速度判断靠近/远离 ========== */
+    /* ========== 5. 计算径向速度 ========== */
     X  = track->X1[0];  Vx = track->X1[1];
     Y  = track->X1[2];  Vy = track->X1[3];
     Z  = track->X1[4];  Vz = track->X1[5];
     range = sqrtf(X*X + Y*Y + Z*Z);
     if(range < 1.0f) return 0;
 
-    Vr = (X*Vx + Y*Vy + Z*Vz) / range;  /* 靠近为正，远离为负 */
+    /* 注意: 此 Vr 与 track_renew.Vel 符号相反
+       Vr = + 表示目标远离 (range 增大)
+       Vr = - 表示目标靠近 (range 减小) */
+    Vr = (X*Vx + Y*Vy + Z*Vz) / range;
     effective_range = (tas_switch_range > 0.0f) ? tas_switch_range : DEFAULT_TAS_SWITCH_RANGE;
 
-    /* ========== 5. 方向+距离联合决策 ========== */
-    if(Vr < 0.0f) {
-        /* 远离目标：无距离门槛，有可靠航迹就转TAS */
+    /* ========== 6. 方向+距离联合决策 ========== */
+    if(Vr > 0.0f) {
+        /* Vr>0 = 目标远离：无距离门槛，窗口内 update 足够就切 TAS */
         track->tas_latched = 1;
         return 1;
     } else {
-        /* 靠近目标：需进入切换距离门槛内才转TAS */
+        /* Vr<0 = 目标靠近：需进入切换距离门槛内才转 TAS */
         if(range <= effective_range) {
             track->tas_latched = 1;
             return 1;
         }
-        /* 靠近但还在门槛外 → 继续TWS跟踪，不切 */
+        /* 靠近但还在门槛外 → 继续 TWS 跟踪 */
         return 0;
     }
 }
@@ -488,11 +507,7 @@ void track(
 			for (j = 0; j < (*reliable_track_num); j++) {
 				track_renew[j].tgtnum = reliable_track[j].tgtnum;
 
-				if(tas_switch_flag[j]){
-					track_renew[j].traceType = 100 + reliable_track[j].predict_flag;
-				} else {
-					track_renew[j].traceType = reliable_track[j].predict_flag;
-				}
+				track_renew[j].traceType = tas_switch_flag[j] ? 1 : 0;  /* 0=TWS 1=TAS */
 				
 				track_renew[j].batchNum = reliable_track[j].num_P;
 				track_renew[j].Year = reliable_track[j].Year;

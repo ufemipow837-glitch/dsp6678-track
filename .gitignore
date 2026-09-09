@@ -57,3 +57,6 @@ Desktop.ini
 *.jpg
 *.jpeg
 *.bmp
+
+# 调试输出
+输出数据*.txt
